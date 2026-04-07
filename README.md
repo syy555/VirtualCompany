@@ -389,6 +389,31 @@ virtual-company/
 
 ---
 
+## 卸载
+
+### 完全卸载
+
+```bash
+# 移除全局 CLI 链接
+pnpm unlink --global @vc/cli
+
+# 删除项目
+rm -rf ~/virtual-company
+```
+
+### 仅清理运行时数据（保留代码和配置）
+
+```bash
+cd ~/virtual-company
+rm -rf data/          # 删除 SQLite 数据库
+rm -rf employees/     # 删除所有员工实例和记忆
+rm -rf projects/      # 删除所有项目
+```
+
+清理后重新 `vc hire` 即可从零开始。
+
+---
+
 ## License
 
 MIT
