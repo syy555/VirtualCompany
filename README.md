@@ -167,7 +167,44 @@ pnpm --filter @vc/web dev
 # Web Dashboard 连接自定义 Server 地址
 NEXT_PUBLIC_API_URL=http://localhost:3000
 NEXT_PUBLIC_WS_URL=ws://localhost:3000/ws
+
+# API 认证（可选）
+export VC_API_KEY="your-secret-key"
 ```
+
+---
+
+## 审计日志（Audit Log）
+
+所有操作都会记录到审计日志：
+
+```bash
+# 查询所有日志
+curl http://localhost:3000/api/audit
+
+# 按资源类型查询
+curl http://localhost:3000/api/audit?resourceType=employee
+
+# 查询某资源的历史
+curl http://localhost:3000/api/audit/resource/employee/backend-dev-001
+
+# 查询某操作者的操作
+curl http://localhost:3000/api/audit/actor/secretary-001
+```
+
+### 支持的操作类型
+
+| 操作 | 说明 |
+|------|------|
+| `employee.hired` | 招聘员工 |
+| `employee.fired` | 解雇员工 |
+| `employee.updated` | 更新员工信息 |
+| `project.created` | 创建项目 |
+| `project.updated` | 更新项目 |
+| `pipeline.started` | 启动流水线 |
+| `pipeline.completed` | 流水线完成 |
+| `pipeline.failed` | 流水线失败 |
+| `message.sent` | 发送消息 |
 
 ---
 

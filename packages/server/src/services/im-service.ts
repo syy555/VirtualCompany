@@ -10,6 +10,7 @@ export interface WebSocketClient {
   ws: { send: (data: string) => void };
   employeeId?: string;
   channels: string[];
+  subscriptions?: Set<string>;
 }
 
 export class IMService {

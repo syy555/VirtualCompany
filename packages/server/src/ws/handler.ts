@@ -27,6 +27,14 @@ export function registerWebSocket(server: FastifyInstance): void {
             client.channels = client.channels.filter(c => c !== msg.channelId);
           } else if (msg.type === 'ping') {
             socket.send(JSON.stringify({ type: 'pong' }));
+          } else if (msg.type === 'subscribe') {
+            if (!client.subscriptions) client.subscriptions = new Set();
+            client.subscriptions.add(msg.channel);
+            socket.send(JSON.stringify({ type: 'subscribed', channel: msg.channel }));
+          } else if (msg.type === 'unsubscribe') {
+            if (client.subscriptions) {
+              client.subscriptions.delete(msg.channel);
+            }
           }
         } catch {
           // ignore malformed messages
@@ -38,4 +46,20 @@ export function registerWebSocket(server: FastifyInstance): void {
       });
     });
   });
+}
+
+export function broadcastToSubscribers(server: FastifyInstance, channel: string, payload: unknown): void {
+  const data = JSON.stringify(payload);
+  const clients = (server.imService as any).clients as Map<string, WebSocketClient>;
+  if (!clients) return;
+
+  for (const [, client] of clients) {
+    if (client.subscriptions?.has(channel)) {
+      try {
+        client.ws.send(data);
+      } catch {
+        // client disconnected
+      }
+    }
+  }
 }

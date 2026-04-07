@@ -27,6 +27,7 @@ export const employeeRoutes: FastifyPluginAsync = async (server) => {
 
     const now = new Date();
     db.insert(employees).values({ id, role, name, status: status as any, createdAt: now }).run();
+    server.auditLogger.log('employee.hired', 'owner', { resourceType: 'employee', resourceId: id, details: { role, name } });
     reply.status(201).send({ id, role, name, status, createdAt: now });
   });
 
@@ -45,6 +46,7 @@ export const employeeRoutes: FastifyPluginAsync = async (server) => {
 
     if (Object.keys(updates).length > 0) {
       db.update(employees).set(updates).where(eq(employees.id, id)).run();
+      server.auditLogger.log('employee.updated', 'owner', { resourceType: 'employee', resourceId: id, details: updates });
     }
 
     const updated = db.select().from(employees).where(eq(employees.id, id)).all();
@@ -59,6 +61,7 @@ export const employeeRoutes: FastifyPluginAsync = async (server) => {
     if (!existing[0]) return reply.status(404).send({ error: 'Employee not found' });
 
     db.delete(employees).where(eq(employees.id, id)).run();
+    server.auditLogger.log('employee.fired', 'owner', { resourceType: 'employee', resourceId: id });
     reply.status(204).send();
   });
 

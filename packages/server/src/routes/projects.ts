@@ -24,6 +24,7 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
 
     const now = new Date();
     server.db.insert(projectsTable).values({ id, name, description: description || null, status: status as any, createdAt: now }).run();
+    server.auditLogger.log('project.created', 'owner', { resourceType: 'project', resourceId: id, details: { name, description } });
     reply.status(201).send({ id, name, description, status, createdAt: now });
   });
 
@@ -41,6 +42,7 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
 
     if (Object.keys(updates).length > 0) {
       server.db.update(projectsTable).set(updates).where(eq(projectsTable.id, id)).run();
+      server.auditLogger.log('project.updated', 'owner', { resourceType: 'project', resourceId: id, details: updates });
     }
 
     const updated = server.db.select().from(projectsTable).where(eq(projectsTable.id, id)).all();
