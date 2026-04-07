@@ -157,6 +157,9 @@ tools:
 
 **配置优先级**：`角色 provider.yaml` > `全局 config.yaml defaults`
 
+> 支持国产模型（MiniMax、阿里百炼、智谱、Kimi、DeepSeek、文心、豆包、混元）和 OpenRouter 聚合网关。
+> 完整配置模板见 [docs/provider-templates.md](docs/provider-templates.md)。
+
 ### 当前角色默认模型
 
 | 角色 | 默认模型 | 说明 |

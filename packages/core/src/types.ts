@@ -22,6 +22,7 @@ export interface ProviderConfig {
   provider: string;
   model: string;
   api_key_env: string;
+  base_url?: string;          // 自定义 API 端点（国产模型必需）
 }
 
 export interface AgentProviderConfig {
