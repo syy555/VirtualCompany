@@ -162,20 +162,9 @@ tools:
 
 ### 当前角色默认模型
 
-| 角色 | 默认模型 | 说明 |
-|------|---------|------|
-| secretary | claude-opus-4 | 需要更强的推理和协调能力 |
-| lead-architect | claude-opus-4 | 架构决策需要深度思考 |
-| backend-dev | claude-sonnet-4 | 日常编码，性价比优先 |
-| frontend-dev | claude-sonnet-4 | 日常编码 |
-| qa-engineer | claude-sonnet-4 | 测试编写 |
-| product-manager | claude-sonnet-4 | 需求分析 |
-| devops | claude-sonnet-4 | 运维脚本 |
-| tech-writer | claude-sonnet-4 | 文档编写 |
-| security-engineer | claude-sonnet-4 | 安全审计 |
-| ops-agent | claude-sonnet-4 | 运营监控 |
+所有角色统一使用 `claude-opus-4-20250514`（Opus 4）。
 
-你可以随时修改 `provider.yaml` 来切换模型，比如把所有角色都换成 Opus 或者换成 OpenAI 的模型。
+你可以随时修改 `provider.yaml` 来切换模型，比如把部分角色换成 Sonnet 省钱，或者换成国产模型。
 
 ---
 

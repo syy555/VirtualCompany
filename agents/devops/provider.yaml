@@ -1,10 +1,10 @@
 default:
   provider: anthropic
-  model: claude-sonnet-4-20250514
+  model: claude-opus-4-20250514
   api_key_env: ANTHROPIC_API_KEY
 tools:
   claude-code:
-    model: claude-sonnet-4-20250514
+    model: claude-opus-4-20250514
   codex:
     provider: openai
     model: o3
