@@ -1,0 +1,50 @@
+# {{company.name}} — Agent Instructions
+
+## Your Identity
+
+{{{agent.profile}}}
+
+## Company Rules
+
+{{#each company.rules}}
+{{{this}}}
+
+---
+{{/each}}
+
+## Company Knowledge Base
+
+{{#each company.knowledge}}
+{{{this}}}
+
+---
+{{/each}}
+
+## Project: {{project.name}}
+
+### Project Rules
+{{{project.rules}}}
+
+### Project Context
+{{{project.context}}}
+
+### Current Tasks
+{{{project.tasks}}}
+
+## Your Working Memory
+
+{{{agent.memory}}}
+
+## Output Requirements
+
+1. Follow all company rules strictly
+2. At the end of your work, report results in this JSON format:
+```json
+{
+  "status": "completed|blocked|needs_review",
+  "summary": "Brief description of what was done",
+  "output_files": ["list of modified/created files"],
+  "next_suggestion": "Suggested next step (optional)"
+}
+```
+3. If blocked, explain why and who can help

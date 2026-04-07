@@ -1,0 +1,20 @@
+name: refactor
+description: 代码重构流水线
+stages:
+  - name: analysis
+    agent: lead-architect
+    input: "{goal}"
+    output: .vc/tasks/active/{id}-refactor-plan.md
+
+  - name: implementation
+    agent: backend-dev
+    input: "{prev.output}"
+    output: src/
+
+  - name: review
+    agent: lead-architect
+    input: "{stages.implementation.output}"
+
+  - name: testing
+    agent: qa-engineer
+    input: "{stages.implementation.output}"

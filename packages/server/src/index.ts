@@ -1,0 +1,3 @@
+// @vc/server — placeholder
+// Server implementation will be added in Phase 2
+export {};

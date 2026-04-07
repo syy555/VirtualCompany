@@ -1,0 +1,39 @@
+name: feature
+description: 新功能开发流水线
+stages:
+  - name: requirements
+    agent: product-manager
+    input: "{goal}"
+    output: .vc/tasks/active/{id}-prd.md
+
+  - name: architecture
+    agent: lead-architect
+    input: "{prev.output}"
+    output: .vc/tasks/active/{id}-design.md
+
+  - name: implementation
+    parallel: true
+    tasks:
+      - agent: backend-dev
+        input: "{stages.architecture.output}"
+        output: src/
+      - agent: frontend-dev
+        input: "{stages.architecture.output}"
+        output: src/
+
+  - name: quality
+    parallel: true
+    tasks:
+      - agent: qa-engineer
+        input: "{stages.implementation.output}"
+      - agent: security-engineer
+        input: "{stages.implementation.output}"
+
+  - name: documentation
+    agent: tech-writer
+    input: "{stages.implementation.output}"
+
+  - name: deploy
+    agent: devops
+    input: "{stages.quality.output}"
+    requires_approval: true

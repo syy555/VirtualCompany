@@ -1,0 +1,21 @@
+name: launch
+description: 项目上线流水线
+stages:
+  - name: pre-launch-review
+    agent: lead-architect
+    input: "{goal}"
+    output: .vc/tasks/active/{id}-launch-checklist.md
+
+  - name: security-audit
+    agent: security-engineer
+    input: "{prev.output}"
+
+  - name: deploy
+    agent: devops
+    input: "{stages.security-audit.output}"
+    requires_approval: true
+
+  - name: ops-handover
+    agent: ops-agent
+    input: "{stages.deploy.output}"
+    output: .vc/tasks/active/{id}-ops-plan.md

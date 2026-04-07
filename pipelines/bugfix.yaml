@@ -1,0 +1,21 @@
+name: bugfix
+description: Bug 修复流水线
+stages:
+  - name: analysis
+    agent: qa-engineer
+    input: "{goal}"
+    output: .vc/tasks/active/{id}-analysis.md
+
+  - name: fix
+    agent: backend-dev
+    input: "{prev.output}"
+    output: src/
+
+  - name: verify
+    agent: qa-engineer
+    input: "{stages.fix.output}"
+
+  - name: deploy
+    agent: devops
+    input: "{stages.verify.output}"
+    requires_approval: true

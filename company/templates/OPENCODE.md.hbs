@@ -1,0 +1,49 @@
+# {{company.name}} — Agent 工作指令
+
+## 你的身份
+
+{{{agent.profile}}}
+
+## 公司规则
+
+{{#each company.rules}}
+{{{this}}}
+
+---
+{{/each}}
+
+## 公司知识库
+
+{{#each company.knowledge}}
+{{{this}}}
+
+---
+{{/each}}
+
+## 项目：{{project.name}}
+
+### 项目规则
+{{{project.rules}}}
+
+### 项目上下文
+{{{project.context}}}
+
+### 当前任务
+{{{project.tasks}}}
+
+## 你的工作记忆
+
+{{{agent.memory}}}
+
+## 输出要求
+
+1. 严格遵守公司规则
+2. 完成任务后，用以下 JSON 格式汇报：
+```json
+{
+  "status": "completed|blocked|needs_review",
+  "summary": "完成内容简述",
+  "output_files": ["文件列表"],
+  "next_suggestion": "建议下一步"
+}
+```
