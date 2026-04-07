@@ -10,12 +10,15 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@vc/core": "workspace:*",
-    "fastify": "^5.2.0",
     "@fastify/cors": "^10.0.0",
     "@fastify/websocket": "^11.0.0",
+    "@types/ws": "^8.18.1",
+    "@vc/core": "workspace:*",
     "better-sqlite3": "^11.7.0",
-    "drizzle-orm": "^0.38.0"
+    "drizzle-orm": "^0.38.0",
+    "fastify": "^5.2.0",
+    "nanoid": "^5.0.9",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

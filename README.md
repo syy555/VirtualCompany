@@ -114,6 +114,205 @@ vc fire backend-dev-002
 cd ~/virtual-company && pnpm build
 ```
 
+## 使用指南
+
+### 1. 启动服务
+
+```bash
+# 终端 1：启动 API Server（端口 3000）
+pnpm --filter @vc/server dev
+
+# 终端 2：启动 Web Dashboard（端口 3002）
+pnpm --filter @vc/web dev
+```
+
+打开浏览器访问 http://localhost:3002
+
+### 2. 完整工作流
+
+**步骤 1：招聘员工**
+- Web：访问 `/employees`，选择角色点击招聘
+- CLI：`vc hire backend-dev`
+
+**步骤 2：创建项目**
+- Web：访问 `/projects`，填写项目名称和描述
+- API：
+  ```bash
+  curl -X POST http://localhost:3000/api/projects \
+    -H "Content-Type: application/json" \
+    -d '{"id":"proj-001","name":"我的项目"}'
+  ```
+
+**步骤 3：启动流水线**
+- Web：访问 `/pipelines`，选择流水线类型和项目，填写目标
+- API：
+  ```bash
+  curl -X POST http://localhost:3000/api/pipelines/runs \
+    -H "Content-Type: application/json" \
+    -d '{"type":"feature","projectId":"proj-001","goal":"实现用户登录"}'
+  ```
+
+**步骤 4：审批与监控**
+- 流水线遇到 `requires_approval: true` 的阶段会自动暂停
+- Web：在 `/pipelines` 页面点击"批准"按钮继续
+- API：`curl -X POST http://localhost:3000/api/pipelines/runs/<runId>/approve`
+
+**步骤 5：IM 沟通**
+- Web：访问 `/im`，创建频道或加入现有频道
+- 支持 WebSocket 实时消息推送
+
+### 3. 环境变量（可选）
+
+```bash
+# Web Dashboard 连接自定义 Server 地址
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_WS_URL=ws://localhost:3000/ws
+```
+
+---
+
+## 启动 Server（Phase 2）
+
+```bash
+# 启动 API 服务器（默认端口 3000）
+pnpm --filter @vc/server dev
+
+# 或构建后运行
+pnpm --filter @vc/server build
+node packages/server/dist/index.js
+```
+
+### Server API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/health` | 健康检查 |
+| `GET` | `/api/employees` | 获取所有员工 |
+| `POST` | `/api/employees` | 创建员工 |
+| `GET` | `/api/employees/:id` | 获取单个员工 |
+| `PATCH` | `/api/employees/:id` | 更新员工 |
+| `DELETE` | `/api/employees/:id` | 删除员工 |
+| `GET` | `/api/employees/:id/tasks` | 获取员工任务 |
+| `GET` | `/api/projects` | 获取所有项目 |
+| `POST` | `/api/projects` | 创建项目 |
+| `GET/PATCH/DELETE` | `/api/projects/:id` | 项目 CRUD |
+| `GET` | `/api/tasks` | 获取任务（支持 `?projectId=&employeeId=&status=` 筛选） |
+| `POST` | `/api/tasks` | 创建任务 |
+| `GET/PATCH/DELETE` | `/api/tasks/:id` | 任务 CRUD |
+| `GET` | `/api/channels` | 获取频道（支持 `?type=&projectId=&memberId=` 筛选） |
+| `POST` | `/api/channels` | 创建频道 |
+| `POST` | `/api/channels/:id/members` | 添加频道成员 |
+| `DELETE` | `/api/channels/:id/members/:employeeId` | 移除频道成员 |
+| `DELETE` | `/api/channels/:id` | 删除频道 |
+| `GET` | `/api/messages/channels/:channelId` | 获取频道消息历史 |
+| `POST` | `/api/messages/channels/:channelId` | 发送消息 |
+| `GET/POST` | `/api/pipelines/runs` | 流水线运行管理 |
+| `GET/PATCH` | `/api/pipelines/runs/:id` | 单个运行 |
+| `GET/POST` | `/api/pipelines/runs/:runId/stages` | 阶段管理 |
+| `PATCH` | `/api/pipelines/stages/:id` | 更新阶段状态 |
+| `GET/POST` | `/api/reviews` | 绩效考核管理 |
+| `GET` | `/api/reviews/employee/:employeeId` | 员工考核历史 |
+| `WS` | `/ws` | WebSocket 实时通信 |
+
+### WebSocket 协议
+
+连接 `ws://localhost:3000/ws` 后发送 JSON 消息：
+
+```json
+// 注册员工身份
+{ "type": "register", "employeeId": "backend-dev-001" }
+
+// 加入频道（接收该频道实时消息）
+{ "type": "join", "channelId": "ch-xxx" }
+
+// 离开频道
+{ "type": "leave", "channelId": "ch-xxx" }
+
+// 心跳
+{ "type": "ping" }
+```
+
+服务端推送消息格式：
+
+```json
+// 注册成功
+{ "type": "registered", "clientId": "xxx" }
+
+// 新消息
+{ "type": "message", "channel": "ch-xxx", "data": { "id": "msg-xxx", "senderId": "...", "content": "...", "type": "text", "createdAt": "..." } }
+
+// 心跳响应
+{ "type": "pong" }
+```
+
+---
+
+## 启动 Web Dashboard（Phase 4）
+
+```bash
+# 开发模式（端口 3002）
+pnpm --filter @vc/web dev
+
+# 构建后运行
+pnpm --filter @vc/web build
+pnpm --filter @vc/web start
+```
+
+Dashboard 页面：
+
+| 页面 | 路径 | 说明 |
+|------|------|------|
+| Dashboard | `/` | 统计概览：员工、项目、流水线、频道 |
+| 员工管理 | `/employees` | 招聘/解雇员工、查看状态 |
+| 项目与任务 | `/projects` | 创建项目/任务、分配员工 |
+| 流水线 | `/pipelines` | 启动流水线、审批、查看阶段状态 |
+| 消息 | `/im` | 实时 IM 聊天、频道管理 |
+
+---
+
+## 流水线引擎（Phase 3）
+
+### 启动流水线
+
+```bash
+# 通过 API 启动流水线
+curl -X POST http://localhost:3000/api/pipelines/runs \
+  -H "Content-Type: application/json" \
+  -d '{"type":"feature","projectId":"proj-001","goal":"实现用户登录功能"}'
+```
+
+### 流水线控制
+
+```bash
+# 批准暂停的流水线（等待审批的阶段）
+curl -X POST http://localhost:3000/api/pipelines/runs/<runId>/approve
+
+# 暂停流水线
+curl -X POST http://localhost:3000/api/pipelines/runs/<runId>/pause
+
+# 取消流水线
+curl -X POST http://localhost:3000/api/pipelines/runs/<runId>/cancel
+
+# 查看运行状态（含阶段详情）
+curl http://localhost:3000/api/pipelines/runs/<runId>
+
+# 查看所有流水线定义
+curl http://localhost:3000/api/pipelines/definitions
+```
+
+### 流水线事件
+
+PipelineEngine 触发以下事件（可通过 WebSocket 或日志监听）：
+
+- `pipeline_started` — 流水线开始
+- `stage_started` — 阶段开始
+- `stage_completed` — 阶段完成
+- `stage_failed` — 阶段失败
+- `approval_requested` — 等待审批
+- `pipeline_completed` — 流水线完成
+- `pipeline_failed` — 流水线失败
+- `pipeline_paused` — 流水线暂停
+
 ---
 
 ## 模型配置
@@ -354,10 +553,10 @@ virtual-company/
 │       ├── AGENTS.md
 │       └── OPENCODE.md
 ├── packages/
-│   ├── core/                   # 核心库（类型、DB、员工管理、模板渲染）
+│   ├── core/                   # 核心库（类型、DB、员工管理、模板渲染、Pipeline Engine）
 │   ├── cli/                    # CLI 工具（vc 命令）
-│   ├── server/                 # API 服务器（Phase 2）
-│   └── web/                    # Web Dashboard（Phase 2）
+│   ├── server/                 # API 服务器 + WebSocket IM（Phase 2）
+│   └── web/                    # Web Dashboard（Phase 4）
 └── data/
     └── vc.db                   # SQLite 数据库（运行时生成）
 ```
@@ -375,16 +574,16 @@ virtual-company/
 | 模板 | Handlebars |
 | 配置 | YAML |
 | Server (Phase 2) | Fastify + WebSocket |
-| Web (Phase 2) | Next.js + Tailwind + shadcn/ui |
+| Web (Phase 4) | Next.js 15 + React 19 |
 
 ---
 
 ## 开发路线
 
 - [x] Phase 1: 核心骨架 — 类型、DB、员工管理、CLI、Pipeline 定义
-- [ ] Phase 2: IM 系统 + Server — 消息持久化、WebSocket 实时通信、REST API
-- [ ] Phase 3: Pipeline Engine — 自动编排 Agent 执行、状态追踪
-- [ ] Phase 4: Web Dashboard — 进度看板、IM 聊天界面、Agent 管理
+- [x] Phase 2: IM 系统 + Server — 消息持久化、WebSocket 实时通信、REST API
+- [x] Phase 3: Pipeline Engine — 自动编排 Agent 执行、状态追踪
+- [x] Phase 4: Web Dashboard — 进度看板、IM 聊天界面、Agent 管理
 - [ ] Phase 5: 考核 + 运营 — 自动考核、员工替换、ops-agent 上线后运营
 
 ---

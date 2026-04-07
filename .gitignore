@@ -6,7 +6,11 @@ data/
 *.db-wal
 .turbo/
 employees/*/memory/
+employees/*/instance.yaml
 projects/*/CLAUDE.md
 projects/*/AGENTS.md
 projects/*/OPENCODE.md
+projects/*/.vc/
 .DS_Store
+.next/
+out/
