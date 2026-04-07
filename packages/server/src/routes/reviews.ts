@@ -1,5 +1,4 @@
 import { eq, desc } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
 import type { FastifyPluginAsync } from 'fastify';
 import { performanceReviews, employees } from '@vc/core';
 
@@ -20,41 +19,26 @@ export const reviewRoutes: FastifyPluginAsync = async (server) => {
     return { ...result[0], scores: JSON.parse(result[0].scores as string) };
   });
 
-  server.post('/', async (request, reply) => {
-    const { id, employeeId, reviewerId, period, scores, total, result } = request.body as {
-      id?: string; employeeId: string; reviewerId: string; period: string;
-      scores: Record<string, number>; total: number; result: 'pass' | 'warning' | 'replace';
-    };
-    if (!employeeId || !reviewerId || !period || !scores || total === undefined || !result) {
-      return reply.status(400).send({ error: 'employeeId, reviewerId, period, scores, total, and result are required' });
+  server.post('/run', async (request, reply) => {
+    const body = request.body as { period?: string } | undefined;
+    try {
+      const results = await server.reviewService.runReviewCycle(body?.period);
+      return { success: true, results, message: `Review cycle completed. ${results.length} employees reviewed.` };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.status(500).send({ error: message });
     }
+  });
 
-    const employee = server.db.select().from(employees).where(eq(employees.id, employeeId)).all();
-    if (!employee[0]) return reply.status(404).send({ error: 'Employee not found' });
-
-    const reviewId = id || `review-${nanoid(8)}`;
-    const now = new Date();
-    server.db.insert(performanceReviews).values({
-      id: reviewId,
-      employeeId,
-      reviewerId,
-      period,
-      scores: JSON.stringify(scores),
-      total,
-      result,
-      createdAt: now,
-    }).run();
-
-    const created = server.db.select().from(performanceReviews).where(eq(performanceReviews.id, reviewId)).all();
-    reply.status(201).send({ ...created[0], scores: JSON.parse(created[0].scores as string) });
+  server.get('/summary/:period', async (request, reply) => {
+    const { period } = request.params as { period: string };
+    return server.reviewService.getPeriodSummary(period);
   });
 
   server.get('/employee/:employeeId', async (request, reply) => {
     const { employeeId } = request.params as { employeeId: string };
     const employee = server.db.select().from(employees).where(eq(employees.id, employeeId)).all();
     if (!employee[0]) return reply.status(404).send({ error: 'Employee not found' });
-
-    const reviews = server.db.select().from(performanceReviews).where(eq(performanceReviews.employeeId, employeeId)).orderBy(desc(performanceReviews.createdAt)).all();
-    return reviews.map(r => ({ ...r, scores: JSON.parse(r.scores as string) }));
+    return server.reviewService.getEmployeeHistory(employeeId);
   });
 };

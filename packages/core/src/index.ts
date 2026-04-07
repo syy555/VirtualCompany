@@ -5,3 +5,6 @@ export { EmployeeManager } from './employee-manager.js';
 export { TemplateRenderer } from './template-renderer.js';
 export { PipelineLoader } from './pipeline-loader.js';
 export { PipelineEngine } from './pipeline-engine.js';
+export { AgentExecutor } from './agent-executor.js';
+export { ReviewService } from './review-service.js';
+export type { AgentExecutionResult, AgentTask } from './agent-executor.js';

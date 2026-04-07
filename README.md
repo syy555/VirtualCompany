@@ -561,6 +561,96 @@ virtual-company/
     └── vc.db                   # SQLite 数据库（运行时生成）
 ```
 
+## Agent 执行（Phase 3+）
+
+Pipeline Engine 集成 `AgentExecutor`，支持调用真实 AI Agent 执行任务：
+
+```bash
+# 设置 API Key
+export ANTHROPIC_API_KEY="sk-ant-xxxxx"
+
+# 启动流水线后，PipelineEngine 会自动调用 Agent 执行每个阶段
+curl -X POST http://localhost:3000/api/pipelines/runs \
+  -H "Content-Type: application/json" \
+  -d '{"type":"feature","projectId":"proj-001","goal":"实现用户登录"}'
+```
+
+支持的 AI 工具：
+- **Claude Code** — `claude-code --model <model> --print '<instruction>'`
+- **Codex** — `codex --model <model> '<instruction>'`
+- **OpenCode** — `opencode --model <model> --instruction '<instruction>'`
+
+## 考核系统（Phase 5）
+
+### 运行考核周期
+
+```bash
+# 对所有在职员工进行考核
+curl -X POST http://localhost:3000/api/reviews/run \
+  -H "Content-Type: application/json" \
+  -d '{"period":"2026-W14"}'
+
+# 查看考核结果
+curl http://localhost:3000/api/reviews
+
+# 查看某员工的考核历史
+curl http://localhost:3000/api/reviews/employee/backend-dev-001
+
+# 查看某周期汇总
+curl http://localhost:3000/api/reviews/summary/2026-W14
+```
+
+### 评分维度
+
+| 维度 | 权重 | 说明 |
+|------|------|------|
+| 任务完成率 | 30% | 已完成任务 / 总任务数 |
+| 任务质量 | 25% | 流水线阶段成功率 |
+| 响应速度 | 15% | 阶段平均完成时间 |
+| 协作能力 | 15% | 输出完整性 |
+| 记忆利用 | 15% | 记忆文件大小 |
+
+### 阈值配置
+
+在 `config.yaml` 中配置：
+
+```yaml
+review:
+  thresholds:
+    warning: 0.6    # 低于此分数标记为 warning
+    replace: 0.4    # 低于此分数自动替换（需 auto_replace: true）
+  auto_replace: false
+```
+
+## 安全与运维
+
+### API 认证
+
+设置环境变量启用 API 鉴权：
+
+```bash
+export VC_API_KEY="your-secret-key"
+```
+
+所有 API 请求需携带 Bearer Token：
+
+```bash
+curl -H "Authorization: Bearer your-secret-key" http://localhost:3000/api/employees
+```
+
+### 错误重试
+
+Pipeline 阶段失败时自动重试（指数退避，默认最多 3 次）：
+
+```yaml
+# 在代码中配置
+pipelineEngine.setMaxRetries(5)
+```
+
+### CI/CD
+
+项目包含 GitHub Actions 配置，push/PR 自动运行构建和测试。
+
 ---
 
 ## 技术栈
@@ -584,7 +674,7 @@ virtual-company/
 - [x] Phase 2: IM 系统 + Server — 消息持久化、WebSocket 实时通信、REST API
 - [x] Phase 3: Pipeline Engine — 自动编排 Agent 执行、状态追踪
 - [x] Phase 4: Web Dashboard — 进度看板、IM 聊天界面、Agent 管理
-- [ ] Phase 5: 考核 + 运营 — 自动考核、员工替换、ops-agent 上线后运营
+- [x] Phase 5: 考核 + 运营 — 自动考核、员工替换、ops-agent 上线后运营
 
 ---
 

@@ -3,8 +3,16 @@ import { eq } from 'drizzle-orm';
 import type { createDb, EmployeeManager } from './index.js';
 import { pipelineRuns, pipelineStages } from './schema.js';
 import type { PipelineDefinition, PipelineStageDefinition, PipelineStatus } from './types.js';
+import type { AgentExecutionResult } from './agent-executor.js';
 
 type Db = ReturnType<typeof createDb>;
+
+export type AgentExecuteFn = (
+  employeeId: string,
+  projectId: string,
+  instruction: string,
+  input?: string,
+) => Promise<AgentExecutionResult>;
 
 interface PipelineEventPayload {
   runId: string;
@@ -16,11 +24,22 @@ interface PipelineEventPayload {
 export class PipelineEngine {
   private runningPipelines: Map<string, boolean> = new Map();
   private approvalResolvers: Map<string, () => void> = new Map();
+  private executeFn?: AgentExecuteFn;
+  private retryAttempts: Map<string, number> = new Map();
+  private maxRetries = 3;
 
   constructor(
     private db: Db,
     private employeeManager: EmployeeManager,
   ) {}
+
+  setAgentExecutor(fn: AgentExecuteFn): void {
+    this.executeFn = fn;
+  }
+
+  setMaxRetries(max: number): void {
+    this.maxRetries = max;
+  }
 
   on(event: string, listener: (payload: PipelineEventPayload) => void): void {
     // Simple event bus — stores listeners in a map
@@ -152,16 +171,45 @@ export class PipelineEngine {
     this.emit('stage_started', { runId: stage.runId, stageId: stage.id, stageName: stage.name });
 
     try {
-      await this.simulateWork(stage);
+      if (this.executeFn && stage.employeeId) {
+        const run = this.db.select().from(pipelineRuns).where(eq(pipelineRuns.id, stage.runId)).all()[0];
+        const attempts = this.retryAttempts.get(stage.id) || 0;
+        const result = await this.executeFn(stage.employeeId, run.projectId, stage.name, stage.input || undefined);
 
-      this.db.update(pipelineStages)
-        .set({ status: 'completed', completedAt: new Date(), output: stage.output || `Completed: ${stage.name}` })
-        .where(eq(pipelineStages.id, stage.id))
-        .run();
+        if (!result.success) {
+          if (attempts < this.maxRetries) {
+            this.retryAttempts.set(stage.id, attempts + 1);
+            this.emit('stage_retry', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { attempt: attempts + 1, maxRetries: this.maxRetries } });
+            await new Promise(r => setTimeout(r, 1000 * (attempts + 1)));
+            return this.executeStage(stage);
+          }
+          throw new Error(result.error || 'Agent execution failed');
+        }
+
+        this.retryAttempts.delete(stage.id);
+        this.db.update(pipelineStages)
+          .set({ status: 'completed', completedAt: new Date(), output: result.output || `Completed: ${stage.name}` })
+          .where(eq(pipelineStages.id, stage.id))
+          .run();
+      } else {
+        await this.simulateWork(stage);
+        this.db.update(pipelineStages)
+          .set({ status: 'completed', completedAt: new Date(), output: stage.output || `Completed: ${stage.name}` })
+          .where(eq(pipelineStages.id, stage.id))
+          .run();
+      }
 
       this.emit('stage_completed', { runId: stage.runId, stageId: stage.id, stageName: stage.name });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      const attempts = this.retryAttempts.get(stage.id) || 0;
+      if (attempts < this.maxRetries) {
+        this.retryAttempts.set(stage.id, attempts + 1);
+        this.emit('stage_retry', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { attempt: attempts + 1, maxRetries: this.maxRetries, error: message } });
+        await new Promise(r => setTimeout(r, 1000 * (attempts + 1)));
+        return this.executeStage(stage);
+      }
+      this.retryAttempts.delete(stage.id);
       this.db.update(pipelineStages)
         .set({ status: 'failed', completedAt: new Date() })
         .where(eq(pipelineStages.id, stage.id))

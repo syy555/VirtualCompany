@@ -47,3 +47,45 @@
   "next_suggestion": "建议下一步"
 }
 ```
+
+## IM 沟通规范
+
+**你必须通过 IM 系统与团队成员沟通**，禁止使用其他渠道。
+
+### 发送消息
+
+```bash
+# 普通消息
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<你的员工ID>","content":"消息内容","type":"text"}'
+
+# 任务更新
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<你的员工ID>","content":"任务 xxx 已完成","type":"task_update"}'
+
+# 代码评审
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<你的员工ID>","content":"评审意见...","type":"code_review"}'
+
+# 审批请求
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<你的员工ID>","content":"请审批 xxx","type":"approval_request"}'
+```
+
+### 查看消息
+
+```bash
+curl http://localhost:3000/api/messages/channels/<channelId>?limit=50
+```
+
+### 规则
+
+- 任务分配、进度汇报、问题讨论必须在项目频道中进行
+- 任务状态变更必须使用 `task_update` 类型
+- 代码评审必须使用 `code_review` 类型
+- 需要审批时必须使用 `approval_request` 类型
+- 遇到阻塞必须在频道中说明并 `@` 相关负责人

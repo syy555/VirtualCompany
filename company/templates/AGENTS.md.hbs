@@ -48,3 +48,45 @@
 }
 ```
 3. If blocked, explain why and who can help
+
+## IM Communication Rules
+
+**You MUST communicate with team members via the IM system.** No other channels allowed.
+
+### Send Messages
+
+```bash
+# Text message
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<your-employee-id>","content":"message","type":"text"}'
+
+# Task update
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<your-employee-id>","content":"task xxx completed","type":"task_update"}'
+
+# Code review
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<your-employee-id>","content":"review feedback...","type":"code_review"}'
+
+# Approval request
+curl -X POST http://localhost:3000/api/messages/channels/<channelId> \
+  -H "Content-Type: application/json" \
+  -d '{"senderId":"<your-employee-id>","content":"please approve xxx","type":"approval_request"}'
+```
+
+### Read Messages
+
+```bash
+curl http://localhost:3000/api/messages/channels/<channelId>?limit=50
+```
+
+### Rules
+
+- All task assignments, progress reports, and discussions must happen in the project channel
+- Use `task_update` type for status changes
+- Use `code_review` type for code reviews
+- Use `approval_request` type when approval is needed
+- Report blockers in the channel and tag the responsible person

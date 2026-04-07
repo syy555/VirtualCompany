@@ -1,4 +1,4 @@
-import type { createDb, PipelineEngine, PipelineLoader } from '@vc/core';
+import type { createDb, PipelineEngine, PipelineLoader, ReviewService } from '@vc/core';
 import type { IMService } from './services/im-service.js';
 
 declare module 'fastify' {
@@ -7,6 +7,7 @@ declare module 'fastify' {
     imService: IMService;
     pipelineEngine: PipelineEngine;
     pipelineLoader: PipelineLoader;
+    reviewService: ReviewService;
   }
 }
 
