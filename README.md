@@ -106,6 +106,14 @@ vc fire backend-dev-002
 | `vc hire <role>` | 招聘员工（从角色模板创建实例） | `vc hire backend-dev -c 2 -n "小明"` |
 | `vc fire <id>` | 解雇员工（标记离职 + 清除记忆） | `vc fire backend-dev-002` |
 
+`vc` 是一次性命令行工具，每次执行完自动退出，不需要手动退出或重启。
+
+如果修改了源码，重新构建即可生效（不需要重新 link）：
+
+```bash
+cd ~/virtual-company && pnpm build
+```
+
 ---
 
 ## 模型配置
