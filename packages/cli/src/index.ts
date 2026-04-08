@@ -41,4 +41,20 @@ program
   .description('解雇员工（清除记忆，终止实例）')
   .action(fireCommand);
 
+program
+  .command('chat')
+  .description('启动对话式 REPL（自然语言交互，由 LLM 理解意图）')
+  .action(async () => {
+    const { startRepl } = await import('./chat/repl.js');
+    await startRepl();
+  });
+
+program
+  .command('ui')
+  .description('启动菜单式 TUI（全屏终端界面，键盘导航）')
+  .action(async () => {
+    const { startTUI } = await import('./tui/app.js');
+    await startTUI();
+  });
+
 program.parse();

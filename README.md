@@ -94,12 +94,79 @@ vc sync my-app --employee backend-dev-001  # 指定员工视角
 vc fire backend-dev-002
 ```
 
+或者直接进入交互模式：
+
+```bash
+vc chat   # 对话式 REPL，用自然语言管理公司
+vc ui     # 菜单式 TUI，键盘导航全屏界面
+```
+
+---
+
+## 交互模式
+
+### `vc chat` — 对话式 REPL
+
+启动后进入对话循环，用自然语言下达指令，由 LLM 理解意图并调用工具执行。
+
+```
+🏢 Virtual Company — 对话助手
+模型：anthropic / claude-opus-4-20250514
+输入 exit 或 quit 退出
+
+当前状态：3 名员工 · 2 个项目 · 1 条流水线运行中
+
+你 > 招聘一个后端工程师叫小明
+助手 > 已招聘 小明（backend-dev-002），角色：backend-dev
+
+你 > 查看所有员工
+助手 > • backend-dev-001  张三  (backend-dev) [active]
+       • backend-dev-002  小明  (backend-dev) [active]
+       • frontend-dev-001  李四  (frontend-dev) [active]
+
+你 > 启动 feature 流水线，项目 proj-xxx，目标是实现用户登录功能
+助手 > 已启动流水线，运行 ID：run-abc123
+
+你 > 执行本周绩效考核
+助手 > 2026-W14 绩效考核完成：pass: 2 人，warning: 1 人
+```
+
+LLM provider 通过 `config.yaml` 的 `defaults` 配置，支持任意 OpenAI 兼容接口：
+
+```yaml
+defaults:
+  provider: anthropic          # anthropic / openai / ollama / deepseek / qwen 等
+  model: claude-opus-4-20250514
+  api_key_env: ANTHROPIC_API_KEY
+  base_url: https://api.anthropic.com/v1  # 可选，自定义端点
+```
+
+### `vc ui` — 菜单式 TUI
+
+全屏终端界面，方向键 / 回车导航：
+
+```
+🏢 Virtual Company
+员工 3 · 项目 2 · 流水线运行中 1
+
+? 主菜单
+❯ 👥  员工管理
+  📁  项目管理
+  🔄  流水线
+  📊  绩效考核
+  ❌  退出
+```
+
+每个子菜单支持查看列表、创建/招聘/启动等操作，操作完成后自动返回上级菜单。
+
 ---
 
 ## CLI 命令参考
 
 | 命令 | 说明 | 示例 |
 |------|------|------|
+| `vc chat` | 对话式 REPL（自然语言交互） | `vc chat` |
+| `vc ui` | 菜单式 TUI（全屏键盘导航） | `vc ui` |
 | `vc init <project>` | 创建新项目，生成项目目录和元数据 | `vc init my-app` |
 | `vc sync <project>` | 生成 AI 指令文件到项目目录 | `vc sync my-app --employee backend-dev-001` |
 | `vc status` | 查看公司状态（员工、项目、可用角色） | `vc status` |
