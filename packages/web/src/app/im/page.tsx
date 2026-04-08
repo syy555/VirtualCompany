@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Layout from '@/components/Layout';
+import { fetchApi, fetchApiSafe } from '@/lib/api';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000/ws';
 
 export default function IMPage() {
@@ -14,65 +14,107 @@ export default function IMPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [senderId, setSenderId] = useState('owner');
   const [channelForm, setChannelForm] = useState({ name: '', type: 'company' as const });
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeChannelRef = useRef(activeChannel);
+
+  activeChannelRef.current = activeChannel;
 
   useEffect(() => {
-    fetch(`${API}/api/channels`).then(r => r.json()).then(setChannels).catch(() => {});
-    fetch(`${API}/api/employees`).then(r => r.json()).then(setEmployees).catch(() => {});
+    fetchApiSafe<any[]>('/api/channels', []).then(setChannels);
+    fetchApiSafe<any[]>('/api/employees', []).then(setEmployees);
   }, []);
 
   useEffect(() => {
     if (!activeChannel) return;
-    fetch(`${API}/api/messages/channels/${activeChannel}`)
-      .then(r => r.json())
-      .then(setMessages)
-      .catch(() => {});
+    fetchApiSafe<any[]>(`/api/messages/channels/${activeChannel}`, []).then(setMessages);
   }, [activeChannel]);
 
-  useEffect(() => {
+  const connectWs = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    setWsStatus('connecting');
     const ws = new WebSocket(WS_URL);
-    ws.onopen = () => ws.send(JSON.stringify({ type: 'register', employeeId: 'owner' }));
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (msg.type === 'message' && msg.channel === activeChannel) {
-        setMessages(prev => [...prev, msg.data]);
-      }
+
+    ws.onopen = () => {
+      setWsStatus('connected');
+      ws.send(JSON.stringify({ type: 'register', employeeId: 'owner' }));
     };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'message' && msg.channel === activeChannelRef.current) {
+          setMessages(prev => [...prev, msg.data]);
+        }
+      } catch { /* ignore malformed messages */ }
+    };
+
+    ws.onclose = () => {
+      setWsStatus('disconnected');
+      // Auto-reconnect after 3 seconds
+      reconnectTimer.current = setTimeout(connectWs, 3000);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+
     wsRef.current = ws;
-    return () => ws.close();
-  }, [activeChannel]);
+  }, []);
+
+  useEffect(() => {
+    connectWs();
+    return () => {
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      wsRef.current?.close();
+    };
+  }, [connectWs]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim() || !activeChannel) return;
-    fetch(`${API}/api/messages/channels/${activeChannel}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ senderId, content: input }),
-    }).then(r => r.json()).then(() => setInput('')).catch(() => {});
+    try {
+      await fetchApi(`/api/messages/channels/${activeChannel}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId, content: input }),
+      });
+      setInput('');
+      setError(null);
+    } catch (err: any) {
+      setError(`发送失败: ${err.message}`);
+    }
   };
 
   const createChannel = async () => {
     if (!channelForm.name) return;
-    const res = await fetch(`${API}/api/channels`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(channelForm),
-    });
-    if (res.ok) {
-      const ch = await res.json();
+    try {
+      const ch = await fetchApi('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(channelForm),
+      });
       setChannels([...channels, ch]);
       setChannelForm({ name: '', type: 'company' });
+      setError(null);
+    } catch (err: any) {
+      setError(`创建频道失败: ${err.message}`);
     }
   };
 
+  const wsIndicator = wsStatus === 'connected' ? '🟢' : wsStatus === 'connecting' ? '🟡' : '🔴';
+
   return (
     <Layout>
-      <h1 style={{ marginTop: 0 }}>即时通讯</h1>
+      <h1 style={{ marginTop: 0 }}>即时通讯 <span style={{ fontSize: 14, fontWeight: 400 }}>{wsIndicator} {wsStatus}</span></h1>
+      {error && <div style={{ padding: '12px 16px', marginBottom: 16, borderRadius: 8, background: '#fce4ec', color: '#c62828' }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 160px)' }}>
         <div style={{ width: 280, background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflowY: 'auto' }}>

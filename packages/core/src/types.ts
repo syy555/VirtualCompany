@@ -88,11 +88,16 @@ export interface PipelineStageDefinition {
   input?: string;
   output?: string;
   requires_approval?: boolean;
+  approved_by?: string[];
+  timeout?: number;
+  retry?: number;
 }
 
 export interface PipelineDefinition {
   name: string;
   description: string;
+  timeout?: number;
+  on_failure?: string;
   stages: PipelineStageDefinition[];
 }
 
@@ -194,3 +199,11 @@ export interface VCConfig {
     path: string;
   };
 }
+
+// --- Status validation sets ---
+
+export const EMPLOYEE_STATUSES: ReadonlySet<string> = new Set<EmployeeStatus>(['active', 'warning', 'terminated']);
+export const PROJECT_STATUSES: ReadonlySet<string> = new Set<ProjectStatus>(['active', 'paused', 'completed', 'archived']);
+export const TASK_STATUSES: ReadonlySet<string> = new Set<TaskStatus>(['backlog', 'active', 'in_progress', 'review', 'done', 'blocked']);
+export const PIPELINE_STATUSES: ReadonlySet<string> = new Set<PipelineStatus>(['pending', 'running', 'paused', 'completed', 'failed']);
+export const STAGE_STATUSES: ReadonlySet<string> = new Set<StageStatus>(['pending', 'running', 'completed', 'failed', 'skipped']);

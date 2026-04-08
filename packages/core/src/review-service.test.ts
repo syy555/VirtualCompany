@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createDb } from './db.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createDb, closeDb } from './db.js';
 import { EmployeeManager } from './employee-manager.js';
 import { ReviewService } from './review-service.js';
 import { tasks, pipelineRuns, pipelineStages, projects } from './schema.js';
@@ -10,10 +10,15 @@ describe('ReviewService', () => {
   let db: ReturnType<typeof createDb>;
   let manager: EmployeeManager;
   let reviewService: ReviewService;
-  const testRoot = resolve('/tmp/vc-review-test-' + Date.now());
+  let testRoot: string;
+
+  afterEach(() => {
+    closeDb();
+    rmSync(testRoot, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
-    rmSync(testRoot, { recursive: true, force: true });
+    testRoot = resolve('/tmp/vc-review-test-' + Date.now() + '-' + Math.random().toString(36).slice(2));
     mkdirSync(testRoot, { recursive: true });
     mkdirSync(resolve(testRoot, 'agents', 'backend-dev'), { recursive: true });
     mkdirSync(resolve(testRoot, 'employees'), { recursive: true });

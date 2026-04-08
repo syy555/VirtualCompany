@@ -1,18 +1,26 @@
 name: feature
 description: 新功能开发流水线
+timeout: 3600
+on_failure: notify
 stages:
   - name: requirements
     agent: product-manager
     input: "{goal}"
     output: .vc/tasks/active/{id}-prd.md
+    timeout: 600
+    retry: 1
 
   - name: architecture
     agent: lead-architect
     input: "{prev.output}"
     output: .vc/tasks/active/{id}-design.md
+    timeout: 600
+    retry: 1
 
   - name: implementation
     parallel: true
+    timeout: 900
+    retry: 2
     tasks:
       - agent: backend-dev
         input: "{stages.architecture.output}"
@@ -23,17 +31,27 @@ stages:
 
   - name: quality
     parallel: true
+    timeout: 600
+    retry: 1
     tasks:
       - agent: qa-engineer
         input: "{stages.implementation.output}"
+        output: .vc/tasks/active/{id}-qa-report.md
       - agent: security-engineer
         input: "{stages.implementation.output}"
+        output: .vc/tasks/active/{id}-security-report.md
 
   - name: documentation
     agent: tech-writer
     input: "{stages.implementation.output}"
+    output: docs/
+    timeout: 300
+    retry: 1
 
   - name: deploy
     agent: devops
     input: "{stages.quality.output}"
     requires_approval: true
+    approved_by: [lead-architect, product-manager]
+    timeout: 300
+    retry: 1

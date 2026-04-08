@@ -1,21 +1,33 @@
 name: launch
 description: 项目上线流水线
+timeout: 3600
+on_failure: notify
 stages:
   - name: pre-launch-review
     agent: lead-architect
     input: "{goal}"
     output: .vc/tasks/active/{id}-launch-checklist.md
+    timeout: 600
+    retry: 1
 
   - name: security-audit
     agent: security-engineer
     input: "{prev.output}"
+    output: .vc/tasks/active/{id}-security-audit.md
+    timeout: 600
+    retry: 1
 
   - name: deploy
     agent: devops
     input: "{stages.security-audit.output}"
     requires_approval: true
+    approved_by: [lead-architect, security-engineer]
+    timeout: 300
+    retry: 1
 
   - name: ops-handover
     agent: ops-agent
     input: "{stages.deploy.output}"
     output: .vc/tasks/active/{id}-ops-plan.md
+    timeout: 300
+    retry: 1

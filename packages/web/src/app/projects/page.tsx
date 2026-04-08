@@ -2,22 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { fetchApi, fetchApiSafe } from '@/lib/api';
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [projForm, setProjForm] = useState({ name: '', description: '' });
   const [taskForm, setTaskForm] = useState({ title: '', projectId: '', employeeId: '', description: '' });
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/projects`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/tasks`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/employees`).then(r => r.json()).catch(() => []),
+      fetchApiSafe<any[]>('/api/projects', []),
+      fetchApiSafe<any[]>('/api/tasks', []),
+      fetchApiSafe<any[]>('/api/employees', []),
     ]).then(([p, t, e]) => {
       setProjects(p);
       setTasks(t);
@@ -29,30 +29,34 @@ export default function ProjectsPage() {
   const createProject = async () => {
     if (!projForm.name) return;
     const id = `proj-${Date.now()}`;
-    const res = await fetch(`${API}/api/projects`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...projForm }),
-    });
-    if (res.ok) {
-      const created = await res.json();
+    try {
+      const created = await fetchApi('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...projForm }),
+      });
       setProjects([...projects, created]);
       setProjForm({ name: '', description: '' });
+      setError(null);
+    } catch (err: any) {
+      setError(`创建项目失败: ${err.message}`);
     }
   };
 
   const createTask = async () => {
     if (!taskForm.title || !taskForm.projectId) return;
     const id = `task-${Date.now()}`;
-    const res = await fetch(`${API}/api/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...taskForm }),
-    });
-    if (res.ok) {
-      const created = await res.json();
+    try {
+      const created = await fetchApi('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...taskForm }),
+      });
       setTasks([...tasks, created]);
       setTaskForm({ title: '', projectId: '', employeeId: '', description: '' });
+      setError(null);
+    } catch (err: any) {
+      setError(`创建任务失败: ${err.message}`);
     }
   };
 
@@ -61,6 +65,7 @@ export default function ProjectsPage() {
   return (
     <Layout>
       <h1 style={{ marginTop: 0 }}>项目与任务</h1>
+      {error && <div style={{ padding: '12px 16px', marginBottom: 16, borderRadius: 8, background: '#fce4ec', color: '#c62828' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>

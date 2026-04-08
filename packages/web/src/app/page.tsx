@@ -2,14 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-async function fetchApi(path: string) {
-  const res = await fetch(`${API}${path}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
-}
+import { fetchApiSafe } from '@/lib/api';
 
 export default function DashboardPage() {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -17,23 +10,28 @@ export default function DashboardPage() {
   const [runs, setRuns] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      fetchApi('/api/employees').catch(() => []),
-      fetchApi('/api/projects').catch(() => []),
-      fetchApi('/api/pipelines/runs').catch(() => []),
-      fetchApi('/api/channels').catch(() => []),
+      fetchApiSafe<any[]>('/api/employees', []),
+      fetchApiSafe<any[]>('/api/projects', []),
+      fetchApiSafe<any[]>('/api/pipelines/runs', []),
+      fetchApiSafe<any[]>('/api/channels', []),
     ]).then(([emp, proj, r, ch]) => {
       setEmployees(emp);
       setProjects(proj);
       setRuns(r);
       setChannels(ch);
       setLoading(false);
+      if ([emp, proj, r, ch].every(arr => arr.length === 0)) {
+        setError('无法连接到服务器，请确认 API 服务已启动');
+      }
     });
   }, []);
 
   if (loading) return <Layout><div style={{ padding: 40 }}>加载中...</div></Layout>;
+  if (error) return <Layout><div style={{ padding: 40, color: '#e57373' }}>{error}</div></Layout>;
 
   const activeEmployees = employees.filter((e: any) => e.status === 'active');
   const activeProjects = projects.filter((p: any) => p.status === 'active');

@@ -2,19 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { fetchApiSafe, fetchApi } from '@/lib/api';
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ role: '', name: '' });
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/employees`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/employees/roles`).then(r => r.json()).catch(() => []),
+      fetchApiSafe<any[]>('/api/employees', []),
+      fetchApiSafe<string[]>('/api/employees/roles', []),
     ]).then(([emp, r]) => {
       setEmployees(emp);
       setRoles(r);
@@ -24,25 +24,31 @@ export default function EmployeesPage() {
 
   const hire = async () => {
     if (!form.role) return;
-    const res = await fetch(`${API}/api/employees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: `${form.role}-${String(employees.filter(e => e.role === form.role).length + 1).padStart(3, '0')}`,
-        role: form.role,
-        name: form.name || `${form.role}-${String(employees.filter(e => e.role === form.role).length + 1).padStart(3, '0')}`,
-      }),
-    });
-    if (res.ok) {
-      const newEmp = await res.json();
+    try {
+      const newEmp = await fetchApi('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `${form.role}-${String(employees.filter(e => e.role === form.role).length + 1).padStart(3, '0')}`,
+          role: form.role,
+          name: form.name || `${form.role}-${String(employees.filter(e => e.role === form.role).length + 1).padStart(3, '0')}`,
+        }),
+      });
       setEmployees([...employees, newEmp]);
       setForm({ role: '', name: '' });
+      setError(null);
+    } catch (err: any) {
+      setError(`招聘失败: ${err.message}`);
     }
   };
 
   const fire = async (id: string) => {
-    await fetch(`${API}/api/employees/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'terminated' }) });
-    setEmployees(employees.map(e => e.id === id ? { ...e, status: 'terminated' } : e));
+    try {
+      await fetchApi(`/api/employees/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'terminated' }) });
+      setEmployees(employees.map(e => e.id === id ? { ...e, status: 'terminated' } : e));
+    } catch (err: any) {
+      setError(`解雇失败: ${err.message}`);
+    }
   };
 
   if (loading) return <Layout><div style={{ padding: 40 }}>加载中...</div></Layout>;
@@ -50,6 +56,7 @@ export default function EmployeesPage() {
   return (
     <Layout>
       <h1 style={{ marginTop: 0 }}>员工管理</h1>
+      {error && <div style={{ padding: '12px 16px', marginBottom: 16, borderRadius: 8, background: '#fce4ec', color: '#c62828' }}>{error}</div>}
 
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
         <h3 style={{ marginTop: 0 }}>招聘新员工</h3>

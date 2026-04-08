@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createDb } from './db.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createDb, closeDb } from './db.js';
 import { EmployeeManager } from './employee-manager.js';
 import { employees } from './schema.js';
 import { eq } from 'drizzle-orm';
@@ -9,10 +9,15 @@ import { resolve } from 'path';
 describe('EmployeeManager', () => {
   let db: ReturnType<typeof createDb>;
   let manager: EmployeeManager;
-  const testRoot = resolve('/tmp/vc-test-' + Date.now());
+  let testRoot: string;
+
+  afterEach(() => {
+    closeDb();
+    rmSync(testRoot, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
-    rmSync(testRoot, { recursive: true, force: true });
+    testRoot = resolve('/tmp/vc-test-' + Date.now() + '-' + Math.random().toString(36).slice(2));
     mkdirSync(testRoot, { recursive: true });
     mkdirSync(resolve(testRoot, 'agents', 'backend-dev'), { recursive: true });
     mkdirSync(resolve(testRoot, 'employees'), { recursive: true });

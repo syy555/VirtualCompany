@@ -7,7 +7,11 @@ export async function hireCommand(role: string, options: { name?: string; count?
   const db = createDb(getDbPath(root));
   const em = new EmployeeManager(db, root);
 
-  const count = parseInt(options.count || '1');
+  const count = parseInt(options.count || '1', 10);
+  if (isNaN(count) || count < 1) {
+    console.log(chalk.red(`无效的数量: "${options.count}"，请输入正整数`));
+    return;
+  }
 
   // Validate role exists
   const roles = em.listRoles();

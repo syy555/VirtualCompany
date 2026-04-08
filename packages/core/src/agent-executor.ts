@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { resolve } from 'path';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
@@ -6,7 +6,7 @@ import { parse as parseYaml } from 'yaml';
 import type { createDb, EmployeeManager, TemplateRenderer } from './index.js';
 import type { AgentProviderConfig, ProviderConfig } from './types.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface AgentExecutionResult {
   success: boolean;
@@ -147,15 +147,16 @@ export class AgentExecutor {
     timeoutMs = 300000,
   ): Promise<AgentExecutionResult> {
     const instruction = readFileSync(instructionFile, 'utf-8');
-    const escapedInstruction = instruction.replace(/'/g, "'\\''");
-
-    const command = `ANTHROPIC_API_KEY='${apiKey}' claude-code --model '${model}' --print '${escapedInstruction}'`;
 
     try {
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await execFileAsync('claude-code', [
+        '--model', model,
+        '--print', instruction,
+      ], {
         cwd: projectDir,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, ANTHROPIC_API_KEY: apiKey },
       });
 
       return {
@@ -181,15 +182,16 @@ export class AgentExecutor {
     timeoutMs = 300000,
   ): Promise<AgentExecutionResult> {
     const instruction = readFileSync(instructionFile, 'utf-8');
-    const escapedInstruction = instruction.replace(/'/g, "'\\''");
-
-    const command = `OPENAI_API_KEY='${apiKey}' codex --model '${model}' '${escapedInstruction}'`;
 
     try {
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await execFileAsync('codex', [
+        '--model', model,
+        instruction,
+      ], {
         cwd: projectDir,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, OPENAI_API_KEY: apiKey },
       });
 
       return {
@@ -215,15 +217,16 @@ export class AgentExecutor {
     timeoutMs = 300000,
   ): Promise<AgentExecutionResult> {
     const instruction = readFileSync(instructionFile, 'utf-8');
-    const escapedInstruction = instruction.replace(/'/g, "'\\''");
-
-    const command = `opencode --model '${model}' --instruction '${escapedInstruction}'`;
 
     try {
-      const { stdout, stderr } = await execAsync(command, {
+      const { stdout, stderr } = await execFileAsync('opencode', [
+        '--model', model,
+        '--instruction', instruction,
+      ], {
         cwd: projectDir,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env },
       });
 
       return {

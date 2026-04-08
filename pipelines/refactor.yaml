@@ -1,20 +1,32 @@
 name: refactor
 description: 代码重构流水线
+timeout: 2400
+on_failure: notify
 stages:
   - name: analysis
     agent: lead-architect
     input: "{goal}"
     output: .vc/tasks/active/{id}-refactor-plan.md
+    timeout: 600
+    retry: 1
 
   - name: implementation
     agent: backend-dev
     input: "{prev.output}"
     output: src/
+    timeout: 900
+    retry: 2
 
   - name: review
     agent: lead-architect
     input: "{stages.implementation.output}"
+    output: .vc/tasks/active/{id}-review-report.md
+    timeout: 300
+    retry: 1
 
   - name: testing
     agent: qa-engineer
     input: "{stages.implementation.output}"
+    output: .vc/tasks/active/{id}-test-report.md
+    timeout: 600
+    retry: 1

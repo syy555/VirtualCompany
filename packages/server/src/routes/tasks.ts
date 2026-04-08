@@ -1,7 +1,8 @@
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { FastifyPluginAsync } from 'fastify';
-import { tasks, projects as projectsTable, employees } from '@vc/core';
+import { tasks, projects as projectsTable, employees, TASK_STATUSES } from '@vc/core';
+import type { TaskStatus } from '@vc/core';
 
 export const taskRoutes: FastifyPluginAsync = async (server) => {
   server.get('/', async (request) => {
@@ -25,6 +26,7 @@ export const taskRoutes: FastifyPluginAsync = async (server) => {
       id?: string; projectId: string; employeeId?: string; title: string; description?: string; status?: string; pipelineStageId?: string;
     };
     if (!projectId || !title) return reply.status(400).send({ error: 'projectId and title are required' });
+    if (!TASK_STATUSES.has(status)) return reply.status(400).send({ error: `Invalid status: ${status}` });
 
     const project = server.db.select().from(projectsTable).where(eq(projectsTable.id, projectId)).all();
     if (!project[0]) return reply.status(404).send({ error: 'Project not found' });
@@ -42,7 +44,7 @@ export const taskRoutes: FastifyPluginAsync = async (server) => {
       employeeId: employeeId || null,
       title,
       description: description || null,
-      status: status as any,
+      status: status as TaskStatus,
       pipelineStageId: pipelineStageId || null,
       createdAt: now,
       updatedAt: now,

@@ -7,7 +7,11 @@ export const channelRoutes: FastifyPluginAsync = async (server) => {
   server.get('/', async (request) => {
     const query = request.query as Record<string, string>;
     const rows = server.db.select().from(channels).all() as any[];
-    const parsed = rows.map(row => ({ ...row, members: JSON.parse(row.members as string) }));
+    const parsed = rows.map(row => {
+      let members: string[] = [];
+      try { members = JSON.parse(row.members as string); } catch { /* default empty */ }
+      return { ...row, members };
+    });
 
     if (query.type) return parsed.filter((c: any) => c.type === query.type);
     if (query.projectId) return parsed.filter((c: any) => c.projectId === query.projectId);
@@ -19,7 +23,9 @@ export const channelRoutes: FastifyPluginAsync = async (server) => {
     const { id } = request.params as { id: string };
     const rows = server.db.select().from(channels).where(eq(channels.id, id)).all() as any[];
     if (!rows[0]) return reply.status(404).send({ error: 'Channel not found' });
-    return { ...rows[0], members: JSON.parse(rows[0].members as string) };
+    let members: string[] = [];
+    try { members = JSON.parse(rows[0].members as string); } catch { /* default empty */ }
+    return { ...rows[0], members };
   });
 
   server.post('/', async (request, reply) => {

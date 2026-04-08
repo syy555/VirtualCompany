@@ -1,7 +1,8 @@
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { FastifyPluginAsync } from 'fastify';
-import { employees, tasks, projects as projectsTable } from '@vc/core';
+import { employees, tasks, projects as projectsTable, EMPLOYEE_STATUSES } from '@vc/core';
+import type { EmployeeStatus } from '@vc/core';
 
 export const employeeRoutes: FastifyPluginAsync = async (server) => {
   server.get('/', async () => {
@@ -20,13 +21,14 @@ export const employeeRoutes: FastifyPluginAsync = async (server) => {
   server.post('/', async (request, reply) => {
     const { id, role, name, status = 'active' } = request.body as { id: string; role: string; name: string; status?: string };
     if (!id || !role || !name) return reply.status(400).send({ error: 'id, role, and name are required' });
+    if (!EMPLOYEE_STATUSES.has(status)) return reply.status(400).send({ error: `Invalid status: ${status}` });
 
     const db = server.db;
     const existing = db.select().from(employees).where(eq(employees.id, id)).all();
     if (existing.length > 0) return reply.status(409).send({ error: 'Employee already exists' });
 
     const now = new Date();
-    db.insert(employees).values({ id, role, name, status: status as any, createdAt: now }).run();
+    db.insert(employees).values({ id, role, name, status: status as EmployeeStatus, createdAt: now }).run();
     server.auditLogger.log('employee.hired', 'owner', { resourceType: 'employee', resourceId: id, details: { role, name } });
     reply.status(201).send({ id, role, name, status, createdAt: now });
   });

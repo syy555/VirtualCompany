@@ -18,6 +18,9 @@ export class EmployeeManager {
   /** Read a role's profile.yaml */
   getProfile(role: string): AgentProfile {
     const profilePath = resolve(this.rootDir, 'agents', role, 'profile.yaml');
+    if (!existsSync(profilePath)) {
+      throw new Error(`Profile not found for role "${role}": ${profilePath}`);
+    }
     const content = readFileSync(profilePath, 'utf-8');
     return parseYaml(content) as AgentProfile;
   }
@@ -25,6 +28,9 @@ export class EmployeeManager {
   /** Read a role's provider.yaml */
   getProvider(role: string): AgentProviderConfig {
     const providerPath = resolve(this.rootDir, 'agents', role, 'provider.yaml');
+    if (!existsSync(providerPath)) {
+      throw new Error(`Provider config not found for role "${role}": ${providerPath}`);
+    }
     const content = readFileSync(providerPath, 'utf-8');
     return parseYaml(content) as AgentProviderConfig;
   }

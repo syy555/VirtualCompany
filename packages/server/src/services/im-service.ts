@@ -37,7 +37,9 @@ export class IMService {
     const result = this.db.select().from(channels).where(eq(channels.id, id)).all();
     if (!result[0]) return undefined;
     const row = result[0] as typeof channels.$inferSelect;
-    return { ...row, members: JSON.parse(row.members as string) } as Channel;
+    let members: string[] = [];
+    try { members = JSON.parse(row.members as string); } catch { /* corrupted data, default to empty */ }
+    return { ...row, members } as Channel;
   }
 
   listChannels(type?: ChannelType, projectId?: string): Channel[] {
@@ -47,7 +49,11 @@ export class IMService {
       if (projectId && row.projectId !== projectId) return false;
       return true;
     });
-    return filtered.map(row => ({ ...row, members: JSON.parse(row.members as string) })) as Channel[];
+    return filtered.map(row => {
+      let members: string[] = [];
+      try { members = JSON.parse(row.members as string); } catch { /* default empty */ }
+      return { ...row, members };
+    }) as Channel[];
   }
 
   addMember(channelId: string, employeeId: string): void {
@@ -93,7 +99,7 @@ export class IMService {
     const rows = query.all() as (typeof messages.$inferSelect)[];
     return rows.map(row => ({
       ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: row.metadata ? (() => { try { return JSON.parse(row.metadata); } catch { return undefined; } })() : undefined,
     })).reverse() as Message[];
   }
 
@@ -103,8 +109,10 @@ export class IMService {
       const employeeChannels = this.db.select().from(channels).all();
       const joinedChannels = employeeChannels
         .filter(ch => {
-          const members = JSON.parse((ch as any).members as string) as string[];
-          return members.includes(client.employeeId!);
+          try {
+            const members = JSON.parse((ch as any).members as string) as string[];
+            return members.includes(client.employeeId!);
+          } catch { return false; }
         })
         .map(ch => ch.id);
       client.channels = joinedChannels;

@@ -21,9 +21,12 @@ interface PipelineEventPayload {
   data?: Record<string, unknown>;
 }
 
+type EventListener = (payload: PipelineEventPayload) => void;
+
 export class PipelineEngine {
   private runningPipelines: Map<string, boolean> = new Map();
-  private approvalResolvers: Map<string, () => void> = new Map();
+  private approvalResolvers: Map<string, { resolve: () => void; reject: (err: Error) => void; timer: ReturnType<typeof setInterval> }> = new Map();
+  private listeners: Map<string, EventListener[]> = new Map();
   private executeFn?: AgentExecuteFn;
   private retryAttempts: Map<string, number> = new Map();
   private maxRetries = 3;
@@ -41,16 +44,14 @@ export class PipelineEngine {
     this.maxRetries = max;
   }
 
-  on(event: string, listener: (payload: PipelineEventPayload) => void): void {
-    // Simple event bus — stores listeners in a map
-    if (!(this as any)._listeners) (this as any)._listeners = {};
-    if (!(this as any)._listeners[event]) (this as any)._listeners[event] = [];
-    (this as any)._listeners[event].push(listener);
+  on(event: string, listener: EventListener): void {
+    if (!this.listeners.has(event)) this.listeners.set(event, []);
+    this.listeners.get(event)!.push(listener);
   }
 
   private emit(event: string, payload: PipelineEventPayload): void {
-    const listeners = ((this as any)._listeners?.[event] || []) as Array<(p: PipelineEventPayload) => void>;
-    for (const fn of listeners) fn(payload);
+    const fns = this.listeners.get(event) || [];
+    for (const fn of fns) fn(payload);
   }
 
   async startRun(
@@ -161,87 +162,81 @@ export class PipelineEngine {
   }
 
   private async executeStage(stage: typeof pipelineStages.$inferSelect): Promise<void> {
-    const now = new Date();
+    if (!this.executeFn) throw new Error('Agent executor not set');
+    if (!stage.employeeId) throw new Error(`No employee assigned to stage: ${stage.name}`);
 
     this.db.update(pipelineStages)
-      .set({ status: 'running', startedAt: now })
+      .set({ status: 'running', startedAt: new Date() })
       .where(eq(pipelineStages.id, stage.id))
       .run();
-
     this.emit('stage_started', { runId: stage.runId, stageId: stage.id, stageName: stage.name });
 
+    const stageKey = stage.id;
+    const attempts = this.retryAttempts.get(stageKey) || 0;
+
     try {
-      if (this.executeFn && stage.employeeId) {
-        const run = this.db.select().from(pipelineRuns).where(eq(pipelineRuns.id, stage.runId)).all()[0];
-        const attempts = this.retryAttempts.get(stage.id) || 0;
-        const result = await this.executeFn(stage.employeeId, run.projectId, stage.name, stage.input || undefined);
+      const employee = this.employeeManager.get(stage.employeeId);
+      if (!employee) throw new Error(`Employee not found: ${stage.employeeId}`);
 
-        if (!result.success) {
-          if (attempts < this.maxRetries) {
-            this.retryAttempts.set(stage.id, attempts + 1);
-            this.emit('stage_retry', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { attempt: attempts + 1, maxRetries: this.maxRetries } });
-            await new Promise(r => setTimeout(r, 1000 * (attempts + 1)));
-            return this.executeStage(stage);
-          }
-          throw new Error(result.error || 'Agent execution failed');
-        }
+      const result = await this.executeFn(
+        stage.employeeId,
+        this.getProjectIdFromRun(stage.runId),
+        stage.input || `Execute stage: ${stage.name}`,
+        stage.output || undefined,
+      );
 
-        this.retryAttempts.delete(stage.id);
+      if (result.success) {
         this.db.update(pipelineStages)
-          .set({ status: 'completed', completedAt: new Date(), output: result.output || `Completed: ${stage.name}` })
+          .set({ status: 'completed', output: result.output, completedAt: new Date() })
           .where(eq(pipelineStages.id, stage.id))
           .run();
+        this.emit('stage_completed', { runId: stage.runId, stageId: stage.id, stageName: stage.name });
+        this.retryAttempts.delete(stageKey);
       } else {
-        await this.simulateWork(stage);
-        this.db.update(pipelineStages)
-          .set({ status: 'completed', completedAt: new Date(), output: stage.output || `Completed: ${stage.name}` })
-          .where(eq(pipelineStages.id, stage.id))
-          .run();
+        throw new Error(result.error || 'Agent execution failed');
       }
-
-      this.emit('stage_completed', { runId: stage.runId, stageId: stage.id, stageName: stage.name });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      const attempts = this.retryAttempts.get(stage.id) || 0;
+    } catch (err: any) {
       if (attempts < this.maxRetries) {
-        this.retryAttempts.set(stage.id, attempts + 1);
-        this.emit('stage_retry', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { attempt: attempts + 1, maxRetries: this.maxRetries, error: message } });
-        await new Promise(r => setTimeout(r, 1000 * (attempts + 1)));
+        this.retryAttempts.set(stageKey, attempts + 1);
+        this.emit('stage_retry', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { attempt: attempts + 1, error: err.message } });
         return this.executeStage(stage);
       }
-      this.retryAttempts.delete(stage.id);
+
       this.db.update(pipelineStages)
         .set({ status: 'failed', completedAt: new Date() })
         .where(eq(pipelineStages.id, stage.id))
         .run();
-
-      this.emit('stage_failed', {
-        runId: stage.runId,
-        stageId: stage.id,
-        stageName: stage.name,
-        data: { error: message },
-      });
-
+      this.emit('stage_failed', { runId: stage.runId, stageId: stage.id, stageName: stage.name, data: { error: err.message } });
+      this.retryAttempts.delete(stageKey);
       throw err;
     }
   }
 
-  private simulateWork(_stage: typeof pipelineStages.$inferSelect): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 100));
+  private getProjectIdFromRun(runId: string): string {
+    const run = this.db.select().from(pipelineRuns).where(eq(pipelineRuns.id, runId)).all()[0];
+    if (!run) throw new Error(`Pipeline run not found: ${runId}`);
+    return run.projectId;
   }
 
   private waitForApproval(runId: string): Promise<void> {
-    return new Promise<void>(resolve => {
-      this.approvalResolvers.set(runId, resolve);
-      const check = setInterval(() => {
+    return new Promise<void>((resolve, reject) => {
+      const timer = setInterval(() => {
+        if (!this.runningPipelines.get(runId)) {
+          clearInterval(timer);
+          this.approvalResolvers.delete(runId);
+          reject(new Error(`Pipeline ${runId} cancelled while waiting for approval`));
+          return;
+        }
+
         const run = this.db.select().from(pipelineRuns).where(eq(pipelineRuns.id, runId)).all()[0];
-        if (!run) { clearInterval(check); resolve(); return; }
-        if (run.status !== 'paused') {
-          clearInterval(check);
+        if (run?.status === 'running') {
+          clearInterval(timer);
           this.approvalResolvers.delete(runId);
           resolve();
         }
       }, 1000);
+
+      this.approvalResolvers.set(runId, { resolve, reject, timer });
     });
   }
 
@@ -255,9 +250,10 @@ export class PipelineEngine {
       .where(eq(pipelineRuns.id, runId))
       .run();
 
-    const resolver = this.approvalResolvers.get(runId);
-    if (resolver) {
-      resolver();
+    const entry = this.approvalResolvers.get(runId);
+    if (entry) {
+      clearInterval(entry.timer);
+      entry.resolve();
       this.approvalResolvers.delete(runId);
     }
   }
@@ -270,6 +266,15 @@ export class PipelineEngine {
 
   cancelRun(runId: string): void {
     this.runningPipelines.set(runId, false);
+
+    // Clean up any pending approval
+    const entry = this.approvalResolvers.get(runId);
+    if (entry) {
+      clearInterval(entry.timer);
+      entry.reject(new Error('Pipeline cancelled'));
+      this.approvalResolvers.delete(runId);
+    }
+
     this.db.update(pipelineRuns)
       .set({ status: 'failed', completedAt: new Date() })
       .where(eq(pipelineRuns.id, runId))
@@ -288,6 +293,14 @@ export class PipelineEngine {
 
   private failPipeline(runId: string, error: string): void {
     this.runningPipelines.delete(runId);
+
+    // Clean up any pending approval
+    const entry = this.approvalResolvers.get(runId);
+    if (entry) {
+      clearInterval(entry.timer);
+      this.approvalResolvers.delete(runId);
+    }
+
     this.db.update(pipelineRuns)
       .set({ status: 'failed', completedAt: new Date() })
       .where(eq(pipelineRuns.id, runId))

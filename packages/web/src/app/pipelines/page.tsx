@@ -2,21 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { fetchApi, fetchApiSafe } from '@/lib/api';
 
 export default function PipelinesPage() {
   const [definitions, setDefinitions] = useState<any[]>([]);
   const [runs, setRuns] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [runForm, setRunForm] = useState({ type: '', projectId: '', goal: '' });
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/pipelines/definitions`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/pipelines/runs`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/projects`).then(r => r.json()).catch(() => []),
+      fetchApiSafe<any[]>('/api/pipelines/definitions', []),
+      fetchApiSafe<any[]>('/api/pipelines/runs', []),
+      fetchApiSafe<any[]>('/api/projects', []),
     ]).then(([defs, r, p]) => {
       setDefinitions(defs);
       setRuns(r);
@@ -27,21 +27,27 @@ export default function PipelinesPage() {
 
   const startRun = async () => {
     if (!runForm.type || !runForm.projectId || !runForm.goal) return;
-    const res = await fetch(`${API}/api/pipelines/runs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(runForm),
-    });
-    if (res.ok) {
-      const created = await res.json();
+    try {
+      const created = await fetchApi('/api/pipelines/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(runForm),
+      });
       setRuns([created, ...runs]);
       setRunForm({ type: '', projectId: '', goal: '' });
+      setError(null);
+    } catch (err: any) {
+      setError(`启动流水线失败: ${err.message}`);
     }
   };
 
   const approve = async (id: string) => {
-    await fetch(`${API}/api/pipelines/runs/${id}/approve`, { method: 'POST' });
-    setRuns(runs.map(r => r.id === id ? { ...r, status: 'running' } : r));
+    try {
+      await fetchApi(`/api/pipelines/runs/${id}/approve`, { method: 'POST' });
+      setRuns(runs.map(r => r.id === id ? { ...r, status: 'running' } : r));
+    } catch (err: any) {
+      setError(`审批失败: ${err.message}`);
+    }
   };
 
   if (loading) return <Layout><div style={{ padding: 40 }}>加载中...</div></Layout>;
@@ -49,6 +55,7 @@ export default function PipelinesPage() {
   return (
     <Layout>
       <h1 style={{ marginTop: 0 }}>流水线</h1>
+      {error && <div style={{ padding: '12px 16px', marginBottom: 16, borderRadius: 8, background: '#fce4ec', color: '#c62828' }}>{error}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16, marginBottom: 32 }}>
         {definitions.map(d => (

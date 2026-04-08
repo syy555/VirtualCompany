@@ -1,0 +1,22 @@
+{
+  "autoMode": true,
+  "permissions": {
+    "allow": [
+      "read",
+      "edit", 
+      "write",
+      "bash-read",
+      "bash-list",
+      "glob",
+      "grep"
+    ],
+    "deny": [
+      "bash-remove",
+      "git-push-f",
+      "rm-rf"
+    ]
+  },
+  "allowedDirectories": [
+    "/Users/lee/virtual-company"
+  ]
+}

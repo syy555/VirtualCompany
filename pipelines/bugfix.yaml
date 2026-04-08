@@ -1,21 +1,33 @@
 name: bugfix
 description: Bug 修复流水线
+timeout: 1800
+on_failure: notify
 stages:
   - name: analysis
     agent: qa-engineer
     input: "{goal}"
     output: .vc/tasks/active/{id}-analysis.md
+    timeout: 300
+    retry: 1
 
   - name: fix
     agent: backend-dev
     input: "{prev.output}"
     output: src/
+    timeout: 600
+    retry: 2
 
   - name: verify
     agent: qa-engineer
     input: "{stages.fix.output}"
+    output: .vc/tasks/active/{id}-verify-report.md
+    timeout: 300
+    retry: 1
 
   - name: deploy
     agent: devops
     input: "{stages.verify.output}"
     requires_approval: true
+    approved_by: [lead-architect]
+    timeout: 300
+    retry: 1

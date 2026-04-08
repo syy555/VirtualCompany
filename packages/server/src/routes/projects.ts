@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import type { FastifyPluginAsync } from 'fastify';
-import { projects as projectsTable } from '@vc/core';
+import { projects as projectsTable, PROJECT_STATUSES } from '@vc/core';
+import type { ProjectStatus } from '@vc/core';
 
 export const projectRoutes: FastifyPluginAsync = async (server) => {
   server.get('/', async () => {
@@ -18,12 +19,13 @@ export const projectRoutes: FastifyPluginAsync = async (server) => {
   server.post('/', async (request, reply) => {
     const { id, name, description, status = 'active' } = request.body as { id: string; name: string; description?: string; status?: string };
     if (!id || !name) return reply.status(400).send({ error: 'id and name are required' });
+    if (!PROJECT_STATUSES.has(status)) return reply.status(400).send({ error: `Invalid status: ${status}` });
 
     const existing = server.db.select().from(projectsTable).where(eq(projectsTable.id, id)).all();
     if (existing.length > 0) return reply.status(409).send({ error: 'Project already exists' });
 
     const now = new Date();
-    server.db.insert(projectsTable).values({ id, name, description: description || null, status: status as any, createdAt: now }).run();
+    server.db.insert(projectsTable).values({ id, name, description: description || null, status: status as ProjectStatus, createdAt: now }).run();
     server.auditLogger.log('project.created', 'owner', { resourceType: 'project', resourceId: id, details: { name, description } });
     reply.status(201).send({ id, name, description, status, createdAt: now });
   });
