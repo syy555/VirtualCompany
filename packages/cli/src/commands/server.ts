@@ -92,15 +92,16 @@ function stopService(root: string, svc: Service): boolean {
     return false;
   }
   try {
-    process.kill(pid, 'SIGTERM');
-    clearPid(root, svc);
-    const { label } = serviceConfig(root, svc);
-    console.log(chalk.yellow(`  ✓ ${label} 已停止 (PID ${pid})`));
-    return true;
-  } catch (e: any) {
-    console.log(chalk.red(`  停止 ${svc} 失败: ${e.message}`));
-    return false;
+    // Kill the entire process group (negative PID) to clean up child processes
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    // Fallback: kill just the main process
+    try { process.kill(pid, 'SIGTERM'); } catch {}
   }
+  clearPid(root, svc);
+  const { label } = serviceConfig(root, svc);
+  console.log(chalk.yellow(`  ✓ ${label} 已停止 (PID ${pid})`));
+  return true;
 }
 
 function statusService(root: string, svc: Service) {

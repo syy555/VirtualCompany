@@ -174,13 +174,18 @@ defaults:
 | `vc status` | 查看公司状态（员工、项目、可用角色） | `vc status` |
 | `vc hire <role>` | 招聘员工（从角色模板创建实例） | `vc hire backend-dev -c 2 -n "小明"` |
 | `vc fire <id>` | 解雇员工（标记离职 + 清除记忆） | `vc fire backend-dev-002` |
+| `vc server start` | 后台启动 API Server + Web 看板 | `vc server start` |
+| `vc server stop` | 停止所有后台服务 | `vc server stop` |
+| `vc server restart` | 重启所有后台服务 | `vc server restart -s web` |
+| `vc server status` | 查看服务运行状态 | `vc server status` |
+| `vc server logs` | 查看服务日志 | `vc server logs -s server` |
 
 `vc` 是一次性命令行工具，每次执行完自动退出，不需要手动退出或重启。
 
-如果修改了源码，重新构建即可生效（不需要重新 link）：
+如果修改了源码，重新构建并重启服务即可生效：
 
 ```bash
-cd ~/virtual-company && pnpm build
+cd ~/virtual-company && pnpm build && vc server restart
 ```
 
 ## 使用指南
@@ -188,14 +193,28 @@ cd ~/virtual-company && pnpm build
 ### 1. 启动服务
 
 ```bash
-# 终端 1：启动 API Server（端口 3000）
-pnpm --filter @vc/server dev
+# 一键后台启动 API Server + Web 看板
+vc server start
 
-# 终端 2：启动 Web Dashboard（端口 3002）
-pnpm --filter @vc/web dev
+# 查看运行状态
+vc server status
+
+# 停止 / 重启
+vc server stop
+vc server restart
+
+# 只操作单个服务
+vc server restart -s server   # 只重启 API Server
+vc server restart -s web      # 只重启 Web 看板
+
+# 查看日志
+vc server logs                # API Server 日志
+vc server logs -s web         # Web 看板日志
 ```
 
 打开浏览器访问 http://localhost:3002
+
+> 开发模式下也可以用 `pnpm dev`（根目录）同时启动所有服务并开启热重载。
 
 ### 2. 完整工作流
 
