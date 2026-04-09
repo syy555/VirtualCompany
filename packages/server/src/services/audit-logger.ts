@@ -37,7 +37,8 @@ export type Action =
   | 'pipeline.failed'
   | 'channel.created'
   | 'message.sent'
-  | 'review.run';
+  | 'review.run'
+  | 'provider.updated';
 
 export class AuditLogger {
   constructor(private db: Db) {

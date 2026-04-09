@@ -44,6 +44,18 @@ export class EmployeeManager {
       .map(d => d.name);
   }
 
+  /** List roles with profile info (id + name) */
+  listRolesWithProfile(): { id: string; name: string }[] {
+    return this.listRoles().map(role => {
+      try {
+        const profile = this.getProfile(role);
+        return { id: role, name: profile.name || role };
+      } catch {
+        return { id: role, name: role };
+      }
+    });
+  }
+
   /** Hire a new employee (create instance from role template) */
   hire(role: string, name?: string): Employee {
     const profile = this.getProfile(role);

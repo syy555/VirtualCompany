@@ -52,7 +52,7 @@ export class AgentExecutor {
 
     switch (tool) {
       case 'claude-code':
-        return this.executeClaudeCode(projectDir, instructionFile, apiKey, model, task.timeoutMs);
+        return this.executeClaudeCode(projectDir, instructionFile, apiKey, model, providerConfig.base_url, task.timeoutMs);
       case 'codex':
         return this.executeCodex(projectDir, instructionFile, apiKey, model, task.timeoutMs);
       case 'opencode':
@@ -62,29 +62,35 @@ export class AgentExecutor {
     }
   }
 
+  private getGlobalConfig(): any {
+    const configPath = resolve(this.rootDir, 'config.yaml');
+    const content = readFileSync(configPath, 'utf-8');
+    return parseYaml(content) as any;
+  }
+
   private getProviderConfig(role: string): ProviderConfig {
     const providerPath = resolve(this.rootDir, 'agents', role, 'provider.yaml');
+    const globalConfig = this.getGlobalConfig();
+    const globalDefaults: ProviderConfig = {
+      provider: globalConfig.defaults.provider,
+      model: globalConfig.defaults.model,
+      api_key_env: globalConfig.defaults.api_key_env,
+      base_url: globalConfig.defaults.base_url,
+    };
+
     if (!existsSync(providerPath)) {
-      const configPath = resolve(this.rootDir, 'config.yaml');
-      const content = readFileSync(configPath, 'utf-8');
-      const yaml = parseYaml(content) as any;
-      return {
-        provider: yaml.defaults.provider,
-        model: yaml.defaults.model,
-        api_key_env: yaml.defaults.api_key_env,
-      };
+      return globalDefaults;
     }
 
     const content = readFileSync(providerPath, 'utf-8');
     const config = parseYaml(content) as AgentProviderConfig;
-    return config.default;
+    // Merge: role-specific overrides global defaults
+    return { ...globalDefaults, ...config.default };
   }
 
   private getToolFromProvider(config: ProviderConfig): string {
-    const configPath = resolve(this.rootDir, 'config.yaml');
-    const content = readFileSync(configPath, 'utf-8');
-    const yaml = parseYaml(content) as any;
-    return yaml.defaults.tool || 'claude-code';
+    const globalConfig = this.getGlobalConfig();
+    return globalConfig.defaults.tool || 'claude-code';
   }
 
   private getModelFromProvider(config: ProviderConfig): string {
@@ -92,9 +98,14 @@ export class AgentExecutor {
   }
 
   private getApiKey(config: ProviderConfig): string {
-    const envVar = config.api_key_env;
-    const key = process.env[envVar];
-    if (!key) throw new Error(`API key not found in environment variable: ${envVar}`);
+    const val = config.api_key_env;
+    // If it looks like an actual key (contains - or starts with sk-), use directly
+    if (val.startsWith('sk-') || val.includes('-') && val.length > 20) {
+      return val;
+    }
+    // Otherwise treat as env var name
+    const key = process.env[val];
+    if (!key) throw new Error(`API key not found in environment variable: ${val}`);
     return key;
   }
 
@@ -144,9 +155,14 @@ export class AgentExecutor {
     instructionFile: string,
     apiKey: string,
     model: string,
+    baseUrl?: string,
     timeoutMs = 300000,
   ): Promise<AgentExecutionResult> {
     const instruction = readFileSync(instructionFile, 'utf-8');
+    const env: Record<string, string> = { ...process.env as Record<string, string>, ANTHROPIC_API_KEY: apiKey };
+    if (baseUrl) {
+      env.ANTHROPIC_BASE_URL = baseUrl;
+    }
 
     try {
       const { stdout, stderr } = await execFileAsync('claude', [
@@ -157,7 +173,7 @@ export class AgentExecutor {
         cwd: projectDir,
         timeout: timeoutMs,
         maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env, ANTHROPIC_API_KEY: apiKey },
+        env,
       });
 
       return {

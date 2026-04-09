@@ -1,23 +1,20 @@
 company:
-  name: "Virtual Company"
-  description: "AI-powered virtual software company"
-
+  name: Virtual Company
+  description: AI-powered virtual software company
 defaults:
-  provider: anthropic
-  model: claude-opus-4-20250514
-  api_key_env: ANTHROPIC_API_KEY
+  provider: custom
+  model: qwen3.5-plus
+  api_key_env: sk-sp-53ce406071c2400baec9b76cd19c319c
   tool: claude-code
-
+  base_url: https://coding.dashscope.aliyuncs.com/apps/anthropic
 review:
   cycle: weekly
   thresholds:
     warning: 0.6
     replace: 0.4
-  auto_replace: false  # 需要 Owner 确认
-
+  auto_replace: false
 server:
   port: 3000
   ws_port: 3001
-
 database:
   path: ./data/vc.db

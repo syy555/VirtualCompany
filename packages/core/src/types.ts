@@ -182,6 +182,7 @@ export interface VCConfig {
     model: string;
     api_key_env: string;
     tool: string;
+    base_url?: string;
   };
   review: {
     cycle: string;
