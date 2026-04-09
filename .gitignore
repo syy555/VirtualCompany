@@ -14,3 +14,4 @@ projects/*/.vc/
 .DS_Store
 .next/
 out/
+.vc/
