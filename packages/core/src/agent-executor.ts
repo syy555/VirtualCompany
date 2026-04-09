@@ -149,7 +149,8 @@ export class AgentExecutor {
     const instruction = readFileSync(instructionFile, 'utf-8');
 
     try {
-      const { stdout, stderr } = await execFileAsync('claude-code', [
+      const { stdout, stderr } = await execFileAsync('claude', [
+        '--dangerously-skip-permissions',
         '--model', model,
         '--print', instruction,
       ], {

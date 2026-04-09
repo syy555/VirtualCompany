@@ -1,6 +1,6 @@
 import Handlebars from 'handlebars';
 import { resolve } from 'path';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import type { EmployeeManager } from './employee-manager.js';
 
 interface RenderContext {
@@ -118,5 +118,13 @@ export class TemplateRenderer {
       const output = template(context);
       writeFileSync(resolve(projectDir, name), output);
     }
+
+    // Write .claude/settings.json so Claude Code runs in auto mode (no permission prompts)
+    const claudeDir = resolve(projectDir, '.claude');
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      resolve(claudeDir, 'settings.json'),
+      JSON.stringify({ permissions: { allow: ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'WebSearch'], deny: [] } }, null, 2),
+    );
   }
 }
