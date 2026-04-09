@@ -137,19 +137,27 @@ vc fire backend-dev-002            # 解雇
 
 ## 第八步（可选）：启动 Web 看板
 
-在两个终端分别运行：
+用 `vc server` 命令统一管理后台服务：
 
 ```bash
-# 终端 1：后端 API + WebSocket
-cd packages/server && node dist/index.js
-
-# 终端 2：前端看板
-cd packages/web && pnpm start
+vc server start        # 启动 API Server + Web 看板（后台运行）
+vc server stop         # 停止所有服务
+vc server restart      # 重启所有服务
+vc server status       # 查看运行状态
+vc server logs         # 查看 API Server 日志（Ctrl+C 退出）
+vc server logs -s web  # 查看 Web 看板日志
 ```
 
-浏览器打开 [http://localhost:3002](http://localhost:3002) 查看实时看板。
+也可以只操作单个服务：
 
-> 开发模式用 `pnpm dev`（根目录）同时启动所有服务并开启热重载。
+```bash
+vc server start -s server   # 只启动 API Server
+vc server restart -s web    # 只重启 Web 看板
+```
+
+启动后浏览器打开 [http://localhost:3002](http://localhost:3002) 查看实时看板。
+
+> 进程 PID 保存在 `.vc/server.pid` / `.vc/web.pid`，日志写入 `.vc/server.log` / `.vc/web.log`。
 
 ---
 
@@ -164,23 +172,20 @@ cd packages/web && pnpm start
 修改代码后需要重新构建，然后重启服务：
 
 ```bash
-# 第一步：重新构建（在根目录）
+# 重新构建（在根目录）
 pnpm build
 
-# 第二步：重启 server（Ctrl+C 停掉旧进程，再启动）
-cd packages/server && node dist/index.js
-
-# Web 看板（Next.js）需要重新构建并启动
-cd packages/web && pnpm build && pnpm start
+# 重启所有服务
+vc server restart
 ```
 
 只改了某个包时可以单独构建，速度更快：
 
 ```bash
 pnpm --filter @vc/core build      # 只构建 core
-pnpm --filter @vc/server build    # 只构建 server
-pnpm --filter @vc/cli build       # 只构建 cli（vc 命令）
-pnpm --filter @vc/web build       # 只构建 web 看板
+pnpm --filter @vc/server build    # 只构建 server（构建后 vc server restart -s server）
+pnpm --filter @vc/cli build       # 只构建 cli（vc 命令，构建后直接生效）
+pnpm --filter @vc/web build       # 只构建 web 看板（构建后 vc server restart -s web）
 ```
 
 > `vc` 命令（CLI）是一次性进程，每次执行都读取最新的 `dist/`，构建完直接运行即可，不需要重启。

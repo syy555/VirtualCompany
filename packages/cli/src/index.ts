@@ -5,6 +5,7 @@ import { syncCommand } from './commands/sync.js';
 import { statusCommand } from './commands/status.js';
 import { hireCommand } from './commands/hire.js';
 import { fireCommand } from './commands/fire.js';
+import { serverCommand } from './commands/server.js';
 
 const program = new Command();
 
@@ -56,5 +57,11 @@ program
     const { startTUI } = await import('./tui/app.js');
     await startTUI();
   });
+
+program
+  .command('server <action>')
+  .description('管理后台服务：start | stop | restart | status | logs')
+  .option('-s, --service <name>', '指定服务 (server | web)，默认全部')
+  .action(serverCommand);
 
 program.parse();
