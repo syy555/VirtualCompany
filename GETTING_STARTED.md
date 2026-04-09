@@ -153,6 +153,40 @@ cd packages/web && pnpm start
 
 ---
 
+## 修改代码后如何重新加载
+
+### 开发模式（推荐）
+
+根目录运行 `pnpm dev` 时，server 和 web 均已开启热重载，保存文件后自动生效，无需手动操作。
+
+### 生产/手动模式
+
+修改代码后需要重新构建，然后重启服务：
+
+```bash
+# 第一步：重新构建（在根目录）
+pnpm build
+
+# 第二步：重启 server（Ctrl+C 停掉旧进程，再启动）
+cd packages/server && node dist/index.js
+
+# Web 看板（Next.js）需要重新构建并启动
+cd packages/web && pnpm build && pnpm start
+```
+
+只改了某个包时可以单独构建，速度更快：
+
+```bash
+pnpm --filter @vc/core build      # 只构建 core
+pnpm --filter @vc/server build    # 只构建 server
+pnpm --filter @vc/cli build       # 只构建 cli（vc 命令）
+pnpm --filter @vc/web build       # 只构建 web 看板
+```
+
+> `vc` 命令（CLI）是一次性进程，每次执行都读取最新的 `dist/`，构建完直接运行即可，不需要重启。
+
+---
+
 ## 常见问题
 
 **`vc` 命令找不到**
