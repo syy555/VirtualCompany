@@ -9,6 +9,7 @@ const navItems = [
   { href: '/projects', label: '项目', icon: '📁' },
   { href: '/pipelines', label: '流水线', icon: '🔄' },
   { href: '/im', label: '消息', icon: '💬' },
+  { href: '/settings', label: '设置', icon: '⚙️' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,4 @@
-import type { createDb, PipelineEngine, PipelineLoader, ReviewService } from '@vc/core';
+import type { createDb, PipelineEngine, PipelineLoader, ReviewService, EmployeeManager } from '@vc/core';
 import type { IMService } from './services/im-service.js';
 import type { AuditLogger } from './services/audit-logger.js';
 
@@ -10,7 +10,7 @@ declare module 'fastify' {
     pipelineLoader: PipelineLoader;
     reviewService: ReviewService;
     auditLogger: AuditLogger;
+    employeeManager: EmployeeManager;
+    rootDir: string;
   }
 }
-
-export {};

@@ -5,6 +5,10 @@ import { employees, tasks, projects as projectsTable, EMPLOYEE_STATUSES } from '
 import type { EmployeeStatus } from '@vc/core';
 
 export const employeeRoutes: FastifyPluginAsync = async (server) => {
+  server.get('/roles', async () => {
+    return server.employeeManager.listRoles();
+  });
+
   server.get('/', async () => {
     const db = server.db;
     return db.select().from(employees).all();

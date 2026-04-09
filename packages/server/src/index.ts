@@ -13,6 +13,7 @@ import { messageRoutes } from './routes/messages.js';
 import { pipelineRoutes } from './routes/pipelines.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { auditRoutes } from './routes/audit.js';
+import { configRoutes } from './routes/config.js';
 import { registerWebSocket } from './ws/handler.js';
 import { authMiddleware } from './middleware/auth.js';
 
@@ -78,6 +79,8 @@ async function start() {
   server.decorate('pipelineLoader', pipelineLoader);
   server.decorate('reviewService', reviewService);
   server.decorate('auditLogger', auditLogger);
+  server.decorate('employeeManager', employeeManager);
+  server.decorate('rootDir', rootDir);
 
   server.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
@@ -91,6 +94,7 @@ async function start() {
   server.register(pipelineRoutes, { prefix: '/api/pipelines' });
   server.register(reviewRoutes, { prefix: '/api/reviews' });
   server.register(auditRoutes, { prefix: '/api/audit' });
+  server.register(configRoutes, { prefix: '/api/config' });
 
   registerWebSocket(server);
 
