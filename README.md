@@ -246,7 +246,9 @@ vc server logs -s web         # Web 看板日志
 - API：`curl -X POST http://localhost:3000/api/pipelines/runs/<runId>/approve`
 
 **步骤 5：IM 沟通**
-- Web：访问 `/im`，创建频道或加入现有频道
+- Web：访问 `/im`，系统频道会自动打开
+- 在系统频道中输入消息，秘书 Agent 会自动处理并回复
+- 也可以创建自定义频道用于项目沟通
 - 支持 WebSocket 实时消息推送
 
 ### 3. 环境变量（可选）
@@ -391,7 +393,7 @@ Dashboard 页面：
 | 员工管理 | `/employees` | 招聘/解雇员工、查看状态 |
 | 项目与任务 | `/projects` | 创建项目/任务、分配员工 |
 | 流水线 | `/pipelines` | 启动流水线、审批、查看阶段状态 |
-| 消息 | `/im` | 实时 IM 聊天、频道管理 |
+| 消息 | `/im` | 系统对话（秘书 Agent）、实时 IM 聊天、频道管理 |
 
 ---
 

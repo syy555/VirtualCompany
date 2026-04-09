@@ -18,6 +18,23 @@ export class IMService {
 
   constructor(private db: Db) {}
 
+  /** Ensure the default system channel exists, return its id */
+  ensureSystemChannel(): string {
+    const SYSTEM_ID = 'ch-system';
+    const existing = this.db.select().from(channels).where(eq(channels.id, SYSTEM_ID)).all();
+    if (existing.length > 0) return SYSTEM_ID;
+    const now = new Date();
+    this.db.insert(channels).values({
+      id: SYSTEM_ID,
+      name: '系统',
+      type: 'company' as ChannelType,
+      projectId: null,
+      members: JSON.stringify(['owner']),
+      createdAt: now,
+    }).run();
+    return SYSTEM_ID;
+  }
+
   createChannel(name: string, type: ChannelType, projectId?: string, members: string[] = []): Channel {
     const id = `ch-${nanoid(8)}`;
     const now = new Date();

@@ -1,0 +1,5 @@
+defaults:
+  provider: custom
+  base_url: https://coding.dashscope.aliyuncs.com/apps/anthropic
+  api_key_env: sk-sp-53ce406071c2400baec9b76cd19c319c
+  model: qwen3.5-plus

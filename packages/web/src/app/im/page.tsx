@@ -24,7 +24,12 @@ export default function IMPage() {
   activeChannelRef.current = activeChannel;
 
   useEffect(() => {
-    fetchApiSafe<any[]>('/api/channels', []).then(setChannels);
+    fetchApiSafe<any[]>('/api/channels', []).then(chs => {
+      setChannels(chs);
+      // Auto-select system channel
+      const sys = chs.find((c: any) => c.id === 'ch-system');
+      if (sys && !activeChannel) setActiveChannel(sys.id);
+    });
     fetchApiSafe<any[]>('/api/employees', []).then(setEmployees);
   }, []);
 
@@ -78,14 +83,33 @@ export default function IMPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const [chatLoading, setChatLoading] = useState(false);
+
   const sendMessage = async () => {
     if (!input.trim() || !activeChannel) return;
     try {
-      await fetchApi(`/api/messages/channels/${activeChannel}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderId, content: input }),
-      });
+      if (activeChannel === 'ch-system') {
+        // System channel: use /api/chat to get agent response
+        setChatLoading(true);
+        try {
+          await fetchApi('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: input }),
+          });
+        } finally {
+          setChatLoading(false);
+        }
+        // Refresh messages (agent reply was saved server-side)
+        const msgs = await fetchApiSafe<any[]>(`/api/messages/channels/${activeChannel}`, []);
+        setMessages(msgs);
+      } else {
+        await fetchApi(`/api/messages/channels/${activeChannel}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ senderId, content: input }),
+        });
+      }
       setInput('');
       setError(null);
     } catch (err: any) {
@@ -124,7 +148,7 @@ export default function IMPage() {
               <button onClick={createChannel} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#4fc3f7', color: '#fff', cursor: 'pointer', fontSize: 13 }}>+</button>
             </div>
           </div>
-          {channels.map(ch => (
+          {[...channels].sort((a, b) => (a.id === 'ch-system' ? -1 : b.id === 'ch-system' ? 1 : 0)).map(ch => (
             <div
               key={ch.id}
               onClick={() => setActiveChannel(ch.id)}
@@ -146,11 +170,13 @@ export default function IMPage() {
           {activeChannel ? (
             <>
               <div style={{ padding: '16px 20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong>{channels.find(c => c.id === activeChannel)?.name}</strong>
-                <select value={senderId} onChange={e => setSenderId(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
-                  <option value="owner">Owner</option>
-                  {employees.filter(e => e.status === 'active').map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </select>
+                <strong>{activeChannel === 'ch-system' ? '💬 系统对话' : channels.find(c => c.id === activeChannel)?.name}</strong>
+                {activeChannel !== 'ch-system' && (
+                  <select value={senderId} onChange={e => setSenderId(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13 }}>
+                    <option value="owner">Owner</option>
+                    {employees.filter(e => e.status === 'active').map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                )}
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
                 {messages.map((m: any, i: number) => (
@@ -165,8 +191,8 @@ export default function IMPage() {
                 <div ref={messagesEndRef} />
               </div>
               <div style={{ padding: 16, borderTop: '1px solid #eee', display: 'flex', gap: 8 }}>
-                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder="输入消息..." style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd' }} />
-                <button onClick={sendMessage} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#4fc3f7', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>发送</button>
+                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !chatLoading && sendMessage()} placeholder={activeChannel === 'ch-system' ? '跟秘书说点什么...' : '输入消息...'} disabled={chatLoading} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', opacity: chatLoading ? 0.6 : 1 }} />
+                <button onClick={sendMessage} disabled={chatLoading} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: chatLoading ? '#90caf9' : '#4fc3f7', color: '#fff', cursor: chatLoading ? 'wait' : 'pointer', fontWeight: 600 }}>{chatLoading ? '思考中...' : '发送'}</button>
               </div>
             </>
           ) : (

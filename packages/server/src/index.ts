@@ -14,6 +14,7 @@ import { pipelineRoutes } from './routes/pipelines.js';
 import { reviewRoutes } from './routes/reviews.js';
 import { auditRoutes } from './routes/audit.js';
 import { configRoutes } from './routes/config.js';
+import { chatRoutes } from './routes/chat.js';
 import { registerWebSocket } from './ws/handler.js';
 import { authMiddleware } from './middleware/auth.js';
 
@@ -30,6 +31,7 @@ async function start() {
   const templateRenderer = new TemplateRenderer(rootDir);
   const agentExecutor = new AgentExecutor(db, employeeManager, templateRenderer, rootDir);
   const imService = new IMService(db);
+  imService.ensureSystemChannel();
   const pipelineEngine = new PipelineEngine(db, employeeManager);
   const pipelineLoader = new PipelineLoader(rootDir);
   const reviewService = new ReviewService(db, employeeManager, {
@@ -81,6 +83,7 @@ async function start() {
   server.decorate('auditLogger', auditLogger);
   server.decorate('employeeManager', employeeManager);
   server.decorate('rootDir', rootDir);
+  server.decorate('agentExecutor', agentExecutor);
 
   server.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
@@ -95,6 +98,7 @@ async function start() {
   server.register(reviewRoutes, { prefix: '/api/reviews' });
   server.register(auditRoutes, { prefix: '/api/audit' });
   server.register(configRoutes, { prefix: '/api/config' });
+  server.register(chatRoutes, { prefix: '/api/chat' });
 
   registerWebSocket(server);
 
