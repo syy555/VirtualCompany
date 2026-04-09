@@ -23,7 +23,7 @@ async function start() {
   await server.register(cors, { origin: true });
   await server.register(websocket);
 
-  const rootDir = resolve(process.cwd());
+  const rootDir = process.env.VC_ROOT || resolve(process.cwd());
   const dbPath = resolve(rootDir, 'data', 'vc.db');
   const db = createDb(dbPath);
   const employeeManager = new EmployeeManager(db, rootDir);

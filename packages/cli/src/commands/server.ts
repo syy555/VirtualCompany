@@ -75,7 +75,7 @@ function startService(root: string, svc: Service): boolean {
     cwd,
     detached: true,
     stdio: ['ignore', out, out],
-    env: { ...process.env },
+    env: { ...process.env, VC_ROOT: root },
   });
   child.unref();
   writePid(root, svc, child.pid!);
