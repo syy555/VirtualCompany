@@ -10,9 +10,16 @@ export async function fetchApi<T = unknown>(path: string, init?: RequestInit): P
   return res.json();
 }
 
+export class ApiConnectionError extends Error {}
+
 export function fetchApiSafe<T = unknown>(path: string, fallback: T): Promise<T> {
   return fetchApi<T>(path).catch((err) => {
-    console.error(`[fetchApi] ${path} failed:`, err.message);
+    const msg: string = err.message ?? '';
+    // fetch() throws TypeError on network failure (ECONNREFUSED, etc.)
+    if (err instanceof TypeError || msg.includes('fetch') || msg.includes('ECONNREFUSED') || msg.includes('Failed to fetch')) {
+      throw new ApiConnectionError(msg);
+    }
+    console.error(`[fetchApi] ${path} failed:`, msg);
     return fallback;
   });
 }

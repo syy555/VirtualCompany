@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
-import { fetchApiSafe } from '@/lib/api';
+import { fetchApiSafe, ApiConnectionError } from '@/lib/api';
 
 export default function DashboardPage() {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -24,8 +24,12 @@ export default function DashboardPage() {
       setRuns(r);
       setChannels(ch);
       setLoading(false);
-      if ([emp, proj, r, ch].every(arr => arr.length === 0)) {
-        setError('无法连接到服务器，请确认 API 服务已启动');
+    }).catch((err) => {
+      setLoading(false);
+      if (err instanceof ApiConnectionError) {
+        setError('无法连接到服务器，请确认 API 服务已启动（http://localhost:3000）');
+      } else {
+        setError(err.message);
       }
     });
   }, []);
