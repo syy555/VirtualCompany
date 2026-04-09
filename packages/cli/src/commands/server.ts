@@ -50,7 +50,7 @@ function serviceConfig(root: string, svc: Service): { cwd: string; cmd: string; 
   return {
     cwd: resolve(root, 'packages/web'),
     cmd: 'node_modules/.bin/next',
-    args: ['start'],
+    args: ['start', '-p', '3002'],
     label: 'Web 看板',
     port: 3002,
   };
