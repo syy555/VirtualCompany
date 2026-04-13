@@ -51,7 +51,7 @@ export const employeeRoutes: FastifyPluginAsync = async (server) => {
     const updates: Record<string, unknown> = {};
     if ('name' in body) updates.name = body.name;
     if ('status' in body) updates.status = body.status;
-    if ('terminatedAt' in body) updates.terminatedAt = body.terminatedAt;
+    if ('terminatedAt' in body) updates.terminatedAt = body.terminatedAt ? new Date(body.terminatedAt as string) : null;
 
     if (Object.keys(updates).length > 0) {
       db.update(employees).set(updates).where(eq(employees.id, id)).run();

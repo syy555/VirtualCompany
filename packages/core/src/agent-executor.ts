@@ -84,8 +84,14 @@ export class AgentExecutor {
 
     const content = readFileSync(providerPath, 'utf-8');
     const config = parseYaml(content) as AgentProviderConfig;
-    // Merge: role-specific overrides global defaults
-    return { ...globalDefaults, ...config.default };
+    const roleConfig = config.default || {};
+    // Global config takes priority; role-specific only wins if global is 'custom' provider
+    // or if the role explicitly sets a different provider
+    if (globalDefaults.provider === 'custom' && roleConfig.provider !== 'custom') {
+      // Global is custom (e.g. Alibaba), role is still default template — use global
+      return globalDefaults;
+    }
+    return { ...globalDefaults, ...roleConfig };
   }
 
   private getToolFromProvider(config: ProviderConfig): string {
