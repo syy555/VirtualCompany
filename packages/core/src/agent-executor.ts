@@ -51,8 +51,13 @@ export class AgentExecutor {
     writeFileSync(instructionFile, instruction);
 
     switch (tool) {
-      case 'claude-code':
-        return this.executeClaudeCode(projectDir, instructionFile, apiKey, model, providerConfig.base_url, task.timeoutMs);
+      case 'claude-code': {
+        // If custom provider with base_url, use HTTP API directly instead of claude CLI
+        if (providerConfig.base_url) {
+          return this.executeHttpApi(projectDir, instructionFile, apiKey, model, providerConfig.base_url, task.timeoutMs);
+        }
+        return this.executeClaudeCode(projectDir, instructionFile, apiKey, model, undefined, task.timeoutMs);
+      }
       case 'codex':
         return this.executeCodex(projectDir, instructionFile, apiKey, model, task.timeoutMs);
       case 'opencode':
@@ -193,6 +198,74 @@ export class AgentExecutor {
         output: err.stdout || '',
         error: err.stderr || err.message,
         exitCode: err.code || 1,
+      };
+    }
+  }
+
+  private async executeHttpApi(
+    projectDir: string,
+    instructionFile: string,
+    apiKey: string,
+    model: string,
+    baseUrl: string,
+    timeoutMs = 300000,
+  ): Promise<AgentExecutionResult> {
+    const instruction = readFileSync(instructionFile, 'utf-8');
+    const url = `${baseUrl.replace(/\/$/, '')}/v1/messages`;
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 8192,
+          messages: [{ role: 'user', content: instruction }],
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        return {
+          success: false,
+          output: '',
+          error: `API error ${res.status}: ${errText}`,
+          exitCode: 1,
+        };
+      }
+
+      const data = await res.json() as {
+        content?: { type: string; text?: string; thinking?: string }[];
+        error?: { message: string };
+      };
+
+      if (data.error) {
+        return { success: false, output: '', error: data.error.message, exitCode: 1 };
+      }
+
+      // Extract text content, skip thinking blocks
+      const output = (data.content || [])
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text || '')
+        .join('\n');
+
+      return { success: true, output, exitCode: 0 };
+    } catch (err: any) {
+      return {
+        success: false,
+        output: '',
+        error: err.name === 'AbortError' ? `Timeout after ${timeoutMs}ms` : err.message,
+        exitCode: 1,
       };
     }
   }
