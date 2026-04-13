@@ -89,20 +89,46 @@ export default function IMPage() {
     if (!input.trim() || !activeChannel) return;
     try {
       if (activeChannel === 'ch-system') {
-        // System channel: use /api/chat to get agent response
+        // System channel: show user message immediately, then call agent
+        const userMsg = {
+          id: `temp-${Date.now()}`,
+          channelId: activeChannel,
+          senderId: 'owner',
+          content: input,
+          type: 'text',
+          createdAt: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, userMsg]);
+        const userInput = input;
+        setInput('');
         setChatLoading(true);
         try {
-          await fetchApi('/api/chat', {
+          const res = await fetchApi('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: input }),
+            body: JSON.stringify({ message: userInput }),
           });
+          // Show agent reply immediately
+          if (res && (res as any).reply) {
+            const agentMsg = {
+              id: `agent-${Date.now()}`,
+              channelId: activeChannel,
+              senderId: (res as any).from || 'secretary',
+              content: (res as any).reply,
+              type: 'text',
+              createdAt: new Date().toISOString(),
+            };
+            setMessages(prev => [...prev, agentMsg]);
+          }
+        } catch (err: any) {
+          setError(`发送失败: ${err.message}`);
+          // Refresh to get server-side error message
+          const msgs = await fetchApiSafe<any[]>(`/api/messages/channels/${activeChannel}`, []);
+          setMessages(msgs);
         } finally {
           setChatLoading(false);
         }
-        // Refresh messages (agent reply was saved server-side)
-        const msgs = await fetchApiSafe<any[]>(`/api/messages/channels/${activeChannel}`, []);
-        setMessages(msgs);
+        return;
       } else {
         await fetchApi(`/api/messages/channels/${activeChannel}`, {
           method: 'POST',
@@ -179,15 +205,20 @@ export default function IMPage() {
                 )}
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-                {messages.map((m: any, i: number) => (
-                  <div key={i} style={{ marginBottom: 16 }}>
+                {messages.map((m: any, i: number) => {
+                  const isOwner = m.senderId === 'owner';
+                  const isSystem = m.senderId === 'system';
+                  const senderName = isOwner ? '我' : isSystem ? '系统' : (employees.find(e => e.id === m.senderId)?.name || m.senderId);
+                  return (
+                  <div key={m.id || i} style={{ marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                      <strong style={{ fontSize: 13 }}>{m.senderId}</strong>
+                      <strong style={{ fontSize: 13, color: isOwner ? '#4fc3f7' : isSystem ? '#e57373' : '#333' }}>{senderName}</strong>
                       <span style={{ fontSize: 11, color: '#aaa' }}>{new Date(m.createdAt).toLocaleTimeString()}</span>
                     </div>
-                    <div style={{ marginTop: 4, padding: '8px 12px', background: '#f5f5f5', borderRadius: 8, display: 'inline-block' }}>{m.content}</div>
+                    <div style={{ marginTop: 4, padding: '8px 12px', background: isOwner ? '#e3f2fd' : '#f5f5f5', borderRadius: 8, display: 'inline-block', whiteSpace: 'pre-wrap', maxWidth: '80%' }}>{m.content}</div>
                   </div>
-                ))}
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
               <div style={{ padding: 16, borderTop: '1px solid #eee', display: 'flex', gap: 8 }}>
