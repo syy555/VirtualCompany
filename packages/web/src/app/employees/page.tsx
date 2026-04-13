@@ -18,6 +18,12 @@ export default function EmployeesPage() {
   const [providerConfig, setProviderConfig] = useState<any>({});
   const [editingProvider, setEditingProvider] = useState(false);
   const [providerForm, setProviderForm] = useState({ provider: '', model: '', api_key_env: '', base_url: '' });
+  const [editingName, setEditingName] = useState(false);
+  const [nameForm, setNameForm] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   const reload = useCallback(async () => {
     const [emp, r] = await Promise.all([
@@ -34,6 +40,9 @@ export default function EmployeesPage() {
   const selectEmployee = async (emp: any) => {
     setSelected(emp);
     setEditingProvider(false);
+    setEditingName(false);
+    setChatOpen(false);
+    setChatMessages([]);
     const [t, p] = await Promise.all([
       fetchApiSafe<any[]>(`/api/employees/${emp.id}/tasks`, []),
       fetchApiSafe<any>(`/api/employees/roles/${emp.role}/provider`, {}),
@@ -106,6 +115,53 @@ export default function EmployeesPage() {
     }
   };
 
+  const saveName = async () => {
+    if (!selected || !nameForm.trim()) return;
+    try {
+      const updated = await fetchApi(`/api/employees/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameForm.trim() }),
+      });
+      setSelected(updated);
+      setEditingName(false);
+      await reload();
+    } catch (err: any) {
+      setError(`修改名称失败: ${err.message}`);
+    }
+  };
+
+  const openChat = async () => {
+    if (!selected) return;
+    setChatOpen(true);
+    // Load existing DM messages
+    const msgs = await fetchApiSafe<any[]>(`/api/messages/channels/dm-${selected.id}`, []);
+    setChatMessages(msgs);
+  };
+
+  const sendChat = async () => {
+    if (!selected || !chatInput.trim()) return;
+    const msg = chatInput.trim();
+    // Show user message immediately
+    setChatMessages(prev => [...prev, { id: `temp-${Date.now()}`, senderId: 'owner', content: msg, createdAt: new Date().toISOString() }]);
+    setChatInput('');
+    setChatLoading(true);
+    try {
+      const res = await fetchApi(`/api/chat/${selected.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      });
+      if (res && (res as any).reply) {
+        setChatMessages(prev => [...prev, { id: `agent-${Date.now()}`, senderId: selected.id, content: (res as any).reply, createdAt: new Date().toISOString() }]);
+      }
+    } catch (err: any) {
+      setError(`对话失败: ${err.message}`);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   if (loading) return <Layout><div style={{ padding: 40 }}>加载中...</div></Layout>;
 
   const roleName = (role: string) => roles.find(r => r.id === role)?.name || role;
@@ -169,8 +225,22 @@ export default function EmployeesPage() {
 
         {/* Detail panel */}
         {selected && (
-          <div style={{ width: 400, background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-            <h3 style={{ marginTop: 0 }}>{selected.name}</h3>
+          <div style={{ width: 400, background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' }}>
+            {/* Name with edit */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              {editingName ? (
+                <>
+                  <input value={nameForm} onChange={e => setNameForm(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveName()} style={{ flex: 1, padding: '4px 8px', borderRadius: 6, border: '1px solid #4fc3f7', fontSize: 16, fontWeight: 600 }} autoFocus />
+                  <button onClick={saveName} style={{ padding: '2px 10px', borderRadius: 6, border: 'none', background: '#4fc3f7', color: '#fff', cursor: 'pointer', fontSize: 12 }}>保存</button>
+                  <button onClick={() => setEditingName(false)} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 12 }}>取消</button>
+                </>
+              ) : (
+                <>
+                  <h3 style={{ margin: 0, flex: 1 }}>{selected.name}</h3>
+                  <button onClick={() => { setNameForm(selected.name); setEditingName(true); }} style={{ padding: '2px 8px', borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, color: '#888' }}>改名</button>
+                </>
+              )}
+            </div>
             <div style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
               <div>ID: <code>{selected.id}</code></div>
               <div>角色: {roleName(selected.role)}</div>
@@ -178,6 +248,37 @@ export default function EmployeesPage() {
               <div>入职: {new Date(selected.createdAt).toLocaleDateString()}</div>
               {selected.terminatedAt && <div>离职: {new Date(selected.terminatedAt).toLocaleDateString()}</div>}
             </div>
+
+            {/* Chat button */}
+            {selected.status === 'active' && !chatOpen && (
+              <button onClick={openChat} style={{ marginBottom: 16, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#66bb6a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>💬 与 {selected.name} 对话</button>
+            )}
+
+            {/* Chat panel */}
+            {chatOpen && (
+              <div style={{ borderTop: '1px solid #eee', paddingTop: 12, marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <h4 style={{ margin: 0 }}>💬 对话</h4>
+                  <button onClick={() => setChatOpen(false)} style={{ padding: '2px 8px', borderRadius: 4, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 11, color: '#888' }}>收起</button>
+                </div>
+                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 8, background: '#fafafa', borderRadius: 8, padding: 8 }}>
+                  {chatMessages.length === 0 && <div style={{ fontSize: 12, color: '#999', textAlign: 'center', padding: 16 }}>开始对话吧</div>}
+                  {chatMessages.map((m: any, i: number) => {
+                    const isOwner = m.senderId === 'owner';
+                    return (
+                      <div key={m.id || i} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>{isOwner ? '我' : selected.name} · {new Date(m.createdAt).toLocaleTimeString()}</div>
+                        <div style={{ padding: '6px 10px', background: isOwner ? '#e3f2fd' : '#fff', borderRadius: 6, fontSize: 13, whiteSpace: 'pre-wrap', border: '1px solid #eee' }}>{m.content}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !chatLoading && sendChat()} placeholder={`跟 ${selected.name} 说点什么...`} disabled={chatLoading} style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, opacity: chatLoading ? 0.6 : 1 }} />
+                  <button onClick={sendChat} disabled={chatLoading} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: chatLoading ? '#90caf9' : '#4fc3f7', color: '#fff', cursor: chatLoading ? 'wait' : 'pointer', fontSize: 13, fontWeight: 600 }}>{chatLoading ? '...' : '发送'}</button>
+                </div>
+              </div>
+            )}
 
             {/* Model config */}
             <div style={{ borderTop: '1px solid #eee', paddingTop: 16, marginBottom: 16 }}>
